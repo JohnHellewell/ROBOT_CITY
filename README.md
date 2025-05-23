@@ -1,6 +1,6 @@
 This is all the code needed to run the robots & arena at Robot City
 
-The robots each have an ESP32 acting as a WiFi receiver. These can be reprogrammed wirelessly using the Arduino OTA protocol. Password is "1234". Code for the robots is found in the "ROBOT" folder
+The robots each have an ESP32 acting as a WiFi receiver. These can be reprogrammed wirelessly using the Arduino OTA protocol. Password is "1234". Code for the robots is found in the "Robot_ESP32" folder
 Each robot will have the following programmed functionalities:
 - The ability to send/receive packets over the WiFi network, used to drive the robots and toggle the killswitch. In the future, LED lights will be controlled in this manner as well
 - Each robot can be reprogrammed when turned on and connected to the WiFi
