@@ -18,3 +18,4 @@ The computer will do the following:
   - Display points for each team, and a "winner" screen
   - Controls lights in arena
   
+In the future, I might add a vpn capability to the computer, so I can repair things from anywhere, even uploading code to the robots.
