@@ -2,14 +2,26 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
 //Network credentials
 const char* ssid = "Hellewell";
 const char* password = "mac&cheese";
 
+//UDP
+WiFiUDP udp;
+const unsigned int localPort = 4210;  // Arbitrary port
+char incomingPacket[255];
+
+int ch1 = 500; //500 is halfway between 0 and 1000
+int ch2 = 500;
+int ch3 = 0;
+int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
+
 Adafruit_MPU6050 mpu; //object
 float z_offset = 2.5;  // Offset to calibrate Z axis. 2.5 is what's typically adjusted
+float z_accel = 0.0;
 
 void setup(void) {
   Serial.begin(115200);
@@ -39,6 +51,32 @@ void setup(void) {
   connectToWiFi();
 
   setup_OTA();
+}
+
+void UDP_packet(){
+  if (udp.parsePacket()) {
+    uint8_t buf[4];
+    int len = udp.read(buf, sizeof(buf));
+    if (len == 4) {
+      // Extract values
+      int v1 = buf[0];
+      int v2 = buf[1];
+      int v3 = buf[2];
+      int v4 = buf[3];
+
+      Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
+
+      
+      float result = round(z_accel * 100) / 100; //rounds to two decimal places
+
+      Serial.println(result);
+
+      // Send back the result as float
+      udp.beginPacket(udp.remoteIP(), udp.remotePort());
+      udp.write((uint8_t*)&result, sizeof(result));
+      udp.endPacket();
+    }
+  }
 }
 
 void setup_OTA(){
@@ -71,7 +109,8 @@ void setup_OTA(){
   Serial.println("OTA Ready");
 }
 
-void connectToWiFi() {
+//connects to Wi-Fi and begins UDP
+void connectToWiFi() { 
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -81,6 +120,9 @@ void connectToWiFi() {
   Serial.println("\nWiFi connected!");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+
+  udp.begin(localPort);
+  Serial.println("UDP listening on port " + String(localPort));
 }
 
 void calibrateZ() {
@@ -105,11 +147,13 @@ void calibrateZ() {
 void loop() {
   ArduinoOTA.handle();
 
+  UDP_packet();
+
   /* Get new sensor events with the readings */
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
-  float z_corrected = a.acceleration.z + z_offset;
+  z_accel = a.acceleration.z + z_offset;
 
   /* Print out the values */
   Serial.print("Acceleration X: ");
@@ -119,7 +163,7 @@ void loop() {
   Serial.print(", Z: ");
   Serial.print(a.acceleration.z);
   Serial.print(", corrected Z: ");
-  Serial.print(z_corrected);
+  Serial.print(z_accel);
   Serial.println(" m/s^2");
   Serial.print("Z axis offset: ");
   Serial.println(z_offset);
