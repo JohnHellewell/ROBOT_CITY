@@ -2,13 +2,14 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 
 //Network credentials
 const char* ssid = "Hellewell";
 const char* password = "mac&cheese";
 
 Adafruit_MPU6050 mpu; //object
-float z_offset = 0;  // Offset to calibrate Z axis
+float z_offset = 2.5;  // Offset to calibrate Z axis. 2.5 is what's typically adjusted
 
 void setup(void) {
   Serial.begin(115200);
@@ -33,9 +34,41 @@ void setup(void) {
   //bandwidth options: 260_HZ, 184_HZ, 94_HZ, 44_HZ, 21_HZ, 10_HZ, 5_HZ
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-  calibrateZ(); //calibrate the Z axis
+  //calibrateZ(); //calibrate the Z axis
 
   connectToWiFi();
+
+  setup_OTA();
+}
+
+void setup_OTA(){
+  ArduinoOTA
+  .onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+      type = "sketch";
+    else // U_SPIFFS
+      type = "filesystem";
+    Serial.println("Start updating " + type);
+  })
+  .onEnd([]() {
+    Serial.println("\nEnd");
+  })
+  .onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  })
+  .onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+
+  ArduinoOTA.setPassword("1234"); // No password. Put a string in here to add a password
+  ArduinoOTA.begin();
+  Serial.println("OTA Ready");
 }
 
 void connectToWiFi() {
@@ -60,7 +93,7 @@ void calibrateZ() {
   float current_z = a.acceleration.z;
 
   if(current_z > 5.0){
-    z_offset = 10.0 - current_z; //I used 10.0 instead of 9.8 
+    z_offset = 10.0 - current_z; //I used 10.0 instead of 9.8 , since flipping it upside down tends to overestimate gravity's pull
   } else {
     Serial.println("Unable to calibrate");
   }
@@ -70,6 +103,7 @@ void calibrateZ() {
 }
 
 void loop() {
+  ArduinoOTA.handle();
 
   /* Get new sensor events with the readings */
   sensors_event_t a, g, temp;
@@ -96,5 +130,5 @@ void loop() {
   Serial.println(" degC");
 
   Serial.println("");
-  delay(500);
+  delay(2000);
 }
