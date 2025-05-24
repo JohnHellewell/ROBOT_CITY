@@ -26,6 +26,14 @@ float z_accel = 0.0;
 void setup(void) {
   Serial.begin(115200);
   
+  setup_6050();
+
+  connectToWiFi();
+
+  setup_OTA();
+}
+
+void setup_6050(){
   Wire.begin(1, 0); //GPIO pins for 6050 connection. (SDA, SCL)
   
   // Try to initialize!
@@ -47,10 +55,6 @@ void setup(void) {
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
   //calibrateZ(); //calibrate the Z axis
-
-  connectToWiFi();
-
-  setup_OTA();
 }
 
 void UDP_packet(){
