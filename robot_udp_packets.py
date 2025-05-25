@@ -29,5 +29,5 @@ def send_and_receive(values):
         print("No response (timeout)")
 
 while(True):
-    send_and_receive([100, 120, 255, 1])
+    send_and_receive([100, 120, 255, 0])
     sleep(2)

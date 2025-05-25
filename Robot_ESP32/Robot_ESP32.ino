@@ -11,17 +11,31 @@ const char* password = "mac&cheese";
 
 //UDP
 WiFiUDP udp;
-const unsigned int localPort = 4210;  // Arbitrary port
+const unsigned int localPort = 4210;  // Arbitrary port. Each robot should have its own port
 char incomingPacket[255];
 
-int ch1 = 500; //500 is halfway between 0 and 1000
-int ch2 = 500;
-int ch3 = 0;
+int DEFAULT_PWM_RANGE[2] = {1000, 2000};
+int SERVO_RANGE[2] = {500, 2500};
+
+const bool SERVO_BOT = false; //true if bot is equipped with servo weapon, false if not
+
+const int CH1_DEFAULT = 1500; 
+const int CH2_DEFAULT = 1500;
+const int CH3_DEFAULT = 1500; //normally would be 1000 for weapon to be off. But ESC is set to bidirectional
+
+int ch1 = CH1_DEFAULT; 
+int ch2 = CH2_DEFAULT;
+int ch3 = CH3_DEFAULT; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
+
+const int SAFE_VARIANCE = 25; //in order to switch from kill switch mode 0 to 1 or 2, channels must be this close to the default range
 
 Adafruit_MPU6050 mpu; //object
 float z_offset = 2.5;  // Offset to calibrate Z axis. 2.5 is what's typically adjusted
 float z_accel = 0.0;
+
+volatile bool flipped = false;
+const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above this threshold, bot is considered flipped or unflipped
 
 void setup(void) {
   Serial.begin(115200);
@@ -55,6 +69,135 @@ void setup_6050(){
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
   //calibrateZ(); //calibrate the Z axis
+
+  xTaskCreatePinnedToCore(
+    AccelerometerTask,
+    "AccelMonitor",
+    4096,
+    NULL,
+    1,
+    NULL,
+    1  // Pin to core 1 (or 0)
+  );
+}
+
+void AccelerometerTask(void *pvParameters) { //task that constantly checks if bot is flipped over
+  float readings[5] = {0};
+  int index = 0;
+
+  while (true) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    z_accel = a.acceleration.z + z_offset;
+    index++;
+
+    if (index >= 5) {
+      float sum = 0;
+      for (int i = 0; i < 5; i++) {
+        sum += z_accel;
+      }
+      float avg = sum / 5.0;
+
+      if(!flipped){//if bot is currently marked as right side up
+        if(avg < -1 * FLIPPED_Z_THRESHOLD){
+          flipped = true;
+          Serial.println("FLIPPED!");
+        }
+      } else {//if bot is currently marked as upside down
+        if(avg > FLIPPED_Z_THRESHOLD){
+          flipped = false;
+          Serial.println("FLIPPED!");
+        }
+      }
+      index = 0;  // Reset buffer
+    }
+
+    vTaskDelay(50 / portTICK_PERIOD_MS);  // Wait 50ms
+  }
+}
+
+int validate_range(int n, bool is_servo){
+  int range[2];
+  if(!is_servo){
+    range = {DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[1]};
+  } else {
+    range = {SERVO_RANGE[0], SERVO_RANGE[1]};
+  }
+  if(n >= range[0] && n<= range[1]){
+    return n;
+  } else if(n < range[0]){
+    Serial.print("INVALID CHANNEL SIGNAL RECEIVED! received: ");
+    Serial.println(n);
+    return range[0];
+  } else {
+    Serial.print("INVALID CHANNEL SIGNAL RECEIVED! received: ");
+    Serial.println(n);
+    return range[1];
+  }
+}
+
+bool is_safe_killswitch_change(int v1, int v2, int v3, int mode){
+  if(mode==1 || mode==2){
+    return abs(v1-CH1_DEFAULT)<=SAFE_VARIANCE && abs(v2-CH2_DEFAULT)<=SAFE_VARIANCE && (mode==1 || abs(v3-CH3_DEFAULT)<=SAFE_VARIANCE);
+  } else {
+    Serial.print("logic error: is_safe_killswitch_change was given this value as killswitch: ");
+    Serial.println(mode);
+    return false;
+  }
+}
+
+void execute_package(int v1, int v2, int v3, int v4){
+  if(v4 != 0 && v4 != 2 && v4 != 1){ //make sure valid killswitch signal is received. If not, activate killswitch and disable bot
+      ch1 = CH1_DEFAULT;
+      ch2 = CH2_DEFAULT;
+      ch3 = CH3_DEFAULT;
+      killswitch = 0;
+      Serial.print("INVALID KILLSWITCH SIGNAL RECEIVED! received: ");
+      Serial.println(v4);
+      return;
+  }
+  v1 = validate_range(v1, false);
+  v2 = validate_range(v2, false);
+  v3 = validate_range(v3, SERVO_BOT);
+
+  switch(v4){
+    case 0: { //killswitch is ON; robot should be immobile
+      killswitch=0;
+      ch1 = CH1_DEFAULT;
+      ch2 = CH2_DEFAULT;
+      ch3 = CH3_DEFAULT;
+      break;
+    }
+    case 1: { //limited movement: robot can drive, but weapon is disabled
+      if(killswitch == 0){
+        //make sure robot is safe to start moving. 
+        if(!is_safe_killswitch_change(v1, v2, v3, v4)){
+          Serial.println("Robot will not move until drive joystick is at rest");
+          return;
+        }
+        
+      }
+      killswitch = 1;
+      ch1 = v1;
+      ch2 = v2;
+      ch3 = CH3_DEFAULT;
+      break;
+    }
+    case 2: { //robot is enabled for battle mode
+      if(killswitch == 0 || killswitch == 1){
+        //make sure robot is safe to start moving. 
+        if(!is_safe_killswitch_change(v1, v2, v3, v4)){
+          Serial.println("Robot will not move until drive and weapon are at rest");
+          return;
+        }
+        killswitch = 2;
+      }
+      ch1 = v1;
+      ch2 = v2;
+      ch3 = v3;
+      break;
+    }
+  }
 }
 
 void UDP_packet(){
@@ -69,6 +212,8 @@ void UDP_packet(){
       int v4 = buf[3];
 
       Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
+
+      execute_package(v1, v2, v3, v4);
 
       
       float result = round(z_accel * 100) / 100; //rounds to two decimal places
@@ -129,6 +274,7 @@ void connectToWiFi() {
   Serial.println("UDP listening on port " + String(localPort));
 }
 
+/*
 void calibrateZ() {
   Serial.println("Calibrating... Please keep the board flat and still.");
   delay(2000);  // Give user time to settle the board
@@ -146,37 +292,16 @@ void calibrateZ() {
 
   Serial.print("Calibration complete. Applied Z offset: ");
   Serial.println(z_offset);
-}
+} */
+
+
 
 void loop() {
-  ArduinoOTA.handle();
+  ArduinoOTA.handle(); //checks for incoming OTA programming
 
-  UDP_packet();
+  UDP_packet(); //receive latest packet
 
-  /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  z_accel = a.acceleration.z + z_offset;
-
-  /* Print out the values */
-  Serial.print("Acceleration X: ");
-  Serial.print(a.acceleration.x);
-  Serial.print(", Y: ");
-  Serial.print(a.acceleration.y);
-  Serial.print(", Z: ");
-  Serial.print(a.acceleration.z);
-  Serial.print(", corrected Z: ");
-  Serial.print(z_accel);
-  Serial.println(" m/s^2");
-  Serial.print("Z axis offset: ");
-  Serial.println(z_offset);
-
-
-  Serial.print("Temperature: ");
-  Serial.print(temp.temperature);
-  Serial.println(" degC");
-
-  Serial.println("");
-  delay(2000);
+  //map and write values
+  
+  delay(10);
 }
