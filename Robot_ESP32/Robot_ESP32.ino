@@ -1,18 +1,31 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include "driver/ledc.h"
+
 
 //Network credentials
 const char* ssid = "Hellewell";
 const char* password = "mac&cheese";
 
+//MPU 6050 pins
+#define MPU6050_SCL 9
+#define MPU6050_SDA 8
+
 //UDP
 WiFiUDP udp;
 const unsigned int localPort = 4210;  // Arbitrary port. Each robot should have its own port
 char incomingPacket[255];
+
+#define CH1_PIN 0
+#define CH2_PIN 1
+#define CH3_PIN 2
+const int freq = 50;         // 50 Hz = 20ms period
+const int resolution = 16;
 
 int DEFAULT_PWM_RANGE[2] = {1000, 2000};
 int SERVO_RANGE[2] = {500, 2500};
@@ -39,16 +52,36 @@ const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above thi
 
 void setup(void) {
   Serial.begin(115200);
+
+  //setup_ESCs();
   
   setup_6050();
+
+  xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
 
   connectToWiFi();
 
   setup_OTA();
 }
+/*
+void setup_ESCs(){
+  //ch1
+  ledcSetup(1, freq, resolution);
+  ledcAttachPin(CH1_PIN, 1); 
+  //ch2
+  ledcSetup(2, freq, resolution);
+  ledcAttachPin(CH2_PIN, 2); 
+  //ch3
+  ledcSetup(3, freq, resolution);
+  ledcAttachPin(CH3_PIN, 3); 
+
+  write_to_ESCs(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT);
+
+  Serial.println("PWM Output Pins ready");
+}*/
 
 void setup_6050(){
-  Wire.begin(1, 0); //GPIO pins for 6050 connection. (SDA, SCL)
+  Wire.begin(MPU6050_SDA, MPU6050_SCL); //GPIO pins for 6050 connection. (SDA, SCL)
   
   // Try to initialize!
   if (!mpu.begin()) {
@@ -68,17 +101,9 @@ void setup_6050(){
   //bandwidth options: 260_HZ, 184_HZ, 94_HZ, 44_HZ, 21_HZ, 10_HZ, 5_HZ
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-  //calibrateZ(); //calibrate the Z axis
+  calibrateZ(); //calibrate the Z axis
 
-  xTaskCreatePinnedToCore(
-    AccelerometerTask,
-    "AccelMonitor",
-    4096,
-    NULL,
-    1,
-    NULL,
-    1  // Pin to core 1 (or 0)
-  );
+  
 }
 
 void AccelerometerTask(void *pvParameters) { //task that constantly checks if bot is flipped over
@@ -98,6 +123,8 @@ void AccelerometerTask(void *pvParameters) { //task that constantly checks if bo
       }
       float avg = sum / 5.0;
 
+      //Serial.println(avg);
+
       if(!flipped){//if bot is currently marked as right side up
         if(avg < -1 * FLIPPED_Z_THRESHOLD){
           flipped = true;
@@ -111,18 +138,17 @@ void AccelerometerTask(void *pvParameters) { //task that constantly checks if bo
       }
       index = 0;  // Reset buffer
     }
+    
 
     vTaskDelay(50 / portTICK_PERIOD_MS);  // Wait 50ms
   }
 }
 
 int validate_range(int n, bool is_servo){
-  int range[2];
-  if(!is_servo){
-    range = {DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[1]};
-  } else {
-    range = {SERVO_RANGE[0], SERVO_RANGE[1]};
-  }
+  int* range = DEFAULT_PWM_RANGE;
+  if(is_servo){
+    range = SERVO_RANGE;
+  } 
   if(n >= range[0] && n<= range[1]){
     return n;
   } else if(n < range[0]){
@@ -144,6 +170,43 @@ bool is_safe_killswitch_change(int v1, int v2, int v3, int mode){
     Serial.println(mode);
     return false;
   }
+}
+
+void write_to_ESCs(int v1, int v2, int v3){
+  //ch1
+  v1 = constrain(v1, DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[0]);
+  int duty1 = (v1 * 65535L) / 20000;           // Convert us to 16-bit duty
+  ledcWrite(1, duty1);    
+
+  //ch1
+  v2 = constrain(v2, DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[0]);
+  int duty2 = (v2 * 65535L) / 20000;           // Convert us to 16-bit duty
+  ledcWrite(1, duty2);    
+
+  //ch1
+  v3 = constrain(v3, DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[0]);
+  int duty3 = (v3 * 65535L) / 20000;           // Convert us to 16-bit duty
+  ledcWrite(3, duty3);    
+}
+
+void mix_and_write(){
+  int forward = ch2 - 1500;
+  int turn = ch1 - 1500;
+
+  if(flipped){ //reverses the drive control
+    forward = 1000 - turn;
+  }
+
+  // Mixed motor signals
+  int left_motor = 1500 + forward + turn;
+  int right_motor = 1500 + forward - turn;
+
+  // Clamp to PWM range
+  left_motor = constrain(left_motor, 1000, 2000);
+  right_motor = constrain(right_motor, 1000, 2000);
+
+  //write_to_ESCs(right_motor, left_motor, CH3_DEFAULT);
+  
 }
 
 void execute_package(int v1, int v2, int v3, int v4){
@@ -202,27 +265,26 @@ void execute_package(int v1, int v2, int v3, int v4){
 
 void UDP_packet(){
   if (udp.parsePacket()) {
-    uint8_t buf[4];
+    uint8_t buf[8];
     int len = udp.read(buf, sizeof(buf));
-    if (len == 4) {
+    if (len == 8) {
+      uint16_t* values = (uint16_t*)buf;
       // Extract values
-      int v1 = buf[0];
-      int v2 = buf[1];
-      int v3 = buf[2];
-      int v4 = buf[3];
+      int v1 = values[0];
+      int v2 = values[1];
+      int v3 = values[2];
+      int v4 = values[3];
 
-      Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
+      //Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
 
       execute_package(v1, v2, v3, v4);
 
       
-      float result = round(z_accel * 100) / 100; //rounds to two decimal places
-
-      Serial.println(result);
+      bool received = true; 
 
       // Send back the result as float
       udp.beginPacket(udp.remoteIP(), udp.remotePort());
-      udp.write((uint8_t*)&result, sizeof(result));
+      udp.write((uint8_t*)&received, sizeof(received));
       udp.endPacket();
     }
   }
@@ -274,7 +336,7 @@ void connectToWiFi() {
   Serial.println("UDP listening on port " + String(localPort));
 }
 
-/*
+
 void calibrateZ() {
   Serial.println("Calibrating... Please keep the board flat and still.");
   delay(2000);  // Give user time to settle the board
@@ -292,7 +354,7 @@ void calibrateZ() {
 
   Serial.print("Calibration complete. Applied Z offset: ");
   Serial.println(z_offset);
-} */
+} 
 
 
 
@@ -303,5 +365,5 @@ void loop() {
 
   //map and write values
   
-  delay(10);
+  delay(20);
 }
