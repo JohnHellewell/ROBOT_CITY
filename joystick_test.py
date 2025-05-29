@@ -1,0 +1,69 @@
+import pygame
+import sys
+
+import pygame
+import socket
+import struct
+import time
+
+# --- UDP Setup ---
+ESP32_IP = "192.168.1.7"
+PORT = 4210
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.settimeout(0.05)
+
+def send_and_receive(values):
+    assert len(values) == 4
+    packet = struct.pack('HHHH', *values)
+    sock.sendto(packet, (ESP32_IP, PORT))
+    try:
+        data, _ = sock.recvfrom(1024)
+        result = struct.unpack('?', data[:1])[0]
+        #print("Received bool:", result)
+        return result
+    except socket.timeout:
+        print("No response (timeout)")
+
+# --- Gamepad Setup ---
+pygame.init()
+pygame.joystick.init()
+
+if pygame.joystick.get_count() == 0:
+    print("No joystick connected.")
+    exit()
+
+joystick = pygame.joystick.Joystick(0)
+joystick.init()
+print(f"Using joystick: {joystick.get_name()}")
+
+# --- Axis to RC Conversion ---
+def scale_axis(value, flip):
+    if flip:
+        return 2000-int((value + 1) * 500)
+    else:
+        return int((value + 1) * 500 + 1000)
+
+# --- Main Loop ---
+try:
+    while True:
+        pygame.event.pump()
+
+        # Read axis 4 and 5 (right stick typically)
+        raw_ch1 = joystick.get_axis(2)  # Right stick horizontal
+        raw_ch2 = joystick.get_axis(3)  # Right stick vertical
+
+
+        ch1 = scale_axis(raw_ch1, False)
+        ch2 = scale_axis(raw_ch2, True)
+
+        print(f"ch1: {ch1}, ch2: {ch2}")
+
+        # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
+        send_and_receive([ch1, ch2, 1500, 0])
+
+        #time.sleep(0.05)  # ~20Hz
+
+except KeyboardInterrupt:
+    print("\nExiting...")
+finally:
+    pygame.quit()

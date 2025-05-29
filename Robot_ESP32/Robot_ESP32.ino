@@ -7,6 +7,7 @@
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
 
+#define SOFTWARE_VERSION "0.9"
 
 //Network credentials
 const char* ssid = "Hellewell";
@@ -52,6 +53,9 @@ const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above thi
 
 void setup(void) {
   Serial.begin(115200);
+
+  Serial.print("Running software version ");
+  Serial.println(SOFTWARE_VERSION);
 
   //setup_ESCs();
   
@@ -275,7 +279,7 @@ void UDP_packet(){
       int v3 = values[2];
       int v4 = values[3];
 
-      //Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
+      Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
 
       execute_package(v1, v2, v3, v4);
 
