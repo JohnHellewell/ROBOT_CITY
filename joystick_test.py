@@ -12,6 +12,9 @@ PORT = 4210
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.05)
 
+# --- Stick Drift Correction ---
+dead_zone = 40
+
 def send_and_receive(values):
     assert len(values) == 4
     packet = struct.pack('HHHH', *values)
@@ -38,10 +41,19 @@ print(f"Using joystick: {joystick.get_name()}")
 
 # --- Axis to RC Conversion ---
 def scale_axis(value, flip):
+    temp = 1500
     if flip:
-        return 2000-int((value + 1) * 500)
+        temp = 2000-int((value + 1) * 500)
     else:
-        return int((value + 1) * 500 + 1000)
+        temp = int((value + 1) * 500 + 1000)
+    
+    if abs(1500-temp) <= dead_zone:
+        return 1500
+    else:
+        return temp
+
+
+
 
 # --- Main Loop ---
 try:
@@ -53,15 +65,15 @@ try:
         raw_ch2 = joystick.get_axis(3)  # Right stick vertical
 
 
-        ch1 = scale_axis(raw_ch1, False)
-        ch2 = scale_axis(raw_ch2, True)
+        ch1 = scale_axis(raw_ch1, False) 
+        ch2 = scale_axis(raw_ch2, True) 
 
         print(f"ch1: {ch1}, ch2: {ch2}")
 
         # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
         send_and_receive([ch1, ch2, 1500, 0])
 
-        #time.sleep(0.05)  # ~20Hz
+        time.sleep(1)  
 
 except KeyboardInterrupt:
     print("\nExiting...")
