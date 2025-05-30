@@ -7,7 +7,7 @@
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
 
-#define SOFTWARE_VERSION "0.9"
+#define SOFTWARE_VERSION "1.0.3"
 
 //Network credentials
 const char* ssid = "Hellewell";
@@ -25,8 +25,16 @@ char incomingPacket[255];
 #define CH1_PIN 0
 #define CH2_PIN 1
 #define CH3_PIN 2
-const int freq = 50;         // 50 Hz = 20ms period
-const int resolution = 16;
+
+// Channels
+#define CH1_PWM LEDC_CHANNEL_1
+#define CH2_PWM LEDC_CHANNEL_2
+#define CH3_PWM LEDC_CHANNEL_3
+
+#define PWM_FREQ_HZ     50  // 50 Hz = 20 ms period
+#define PWM_RES_BITS    LEDC_TIMER_13_BIT  // 13-bit resolution
+#define PWM_TIMER       LEDC_TIMER_0
+#define PWM_MODE        LEDC_LOW_SPEED_MODE
 
 int DEFAULT_PWM_RANGE[2] = {1000, 2000};
 int SERVO_RANGE[2] = {500, 2500};
@@ -42,6 +50,10 @@ int ch2 = CH2_DEFAULT;
 int ch3 = CH3_DEFAULT; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
 
+bool right_motor_reverse = true;
+bool left_motor_reverse = false;
+bool weapon_reverse = false;
+
 const int SAFE_VARIANCE = 25; //in order to switch from kill switch mode 0 to 1 or 2, channels must be this close to the default range
 
 Adafruit_MPU6050 mpu; //object
@@ -51,13 +63,14 @@ float z_accel = 0.0;
 volatile bool flipped = false;
 const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above this threshold, bot is considered flipped or unflipped
 
+
 void setup(void) {
   Serial.begin(115200);
 
   Serial.print("Running software version ");
   Serial.println(SOFTWARE_VERSION);
 
-  //setup_ESCs();
+  setup_ESCs();
   
   setup_6050();
 
@@ -66,23 +79,83 @@ void setup(void) {
   connectToWiFi();
 
   setup_OTA();
+
+  
 }
-/*
+
+// Utility to convert microseconds to 13-bit duty
+uint32_t usToDuty(uint16_t pulse_us) {
+  return (uint32_t)(((uint64_t)pulse_us * 8191) / 20000);
+}
+
+void setPWM(uint8_t channel, uint16_t pulse_us) {
+  ledc_channel_t ch;
+  switch (channel) {
+    case 0: ch = CH1_PWM; break;
+    case 1: ch = CH2_PWM; break;
+    case 2: ch = CH3_PWM; break;
+    default: return; // invalid channel
+  }
+
+  uint32_t duty = usToDuty(pulse_us);
+  ledc_set_duty(PWM_MODE, ch, duty);
+  ledc_update_duty(PWM_MODE, ch);
+}
+
+
 void setup_ESCs(){
-  //ch1
-  ledcSetup(1, freq, resolution);
-  ledcAttachPin(CH1_PIN, 1); 
-  //ch2
-  ledcSetup(2, freq, resolution);
-  ledcAttachPin(CH2_PIN, 2); 
-  //ch3
-  ledcSetup(3, freq, resolution);
-  ledcAttachPin(CH3_PIN, 3); 
+  // Timer configuration
+  ledc_timer_config_t timer_conf = {
+    .speed_mode       = PWM_MODE,
+    .duty_resolution  = PWM_RES_BITS,
+    .timer_num        = PWM_TIMER,
+    .freq_hz          = PWM_FREQ_HZ,
+    .clk_cfg          = LEDC_AUTO_CLK
+  };
+  ledc_timer_config(&timer_conf);
 
-  write_to_ESCs(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT);
+  // Channel 1 setup
+  ledc_channel_config_t ch1_conf = {
+    .gpio_num       = CH1_PIN,
+    .speed_mode     = PWM_MODE,
+    .channel        = CH1_PWM,
+    .intr_type      = LEDC_INTR_DISABLE,
+    .timer_sel      = PWM_TIMER,
+    .duty           = 0,
+    .hpoint         = 0
+  };
+  ledc_channel_config(&ch1_conf);
 
-  Serial.println("PWM Output Pins ready");
-}*/
+  // Channel 2 setup
+  ledc_channel_config_t ch2_conf = {
+    .gpio_num       = CH2_PIN,
+    .speed_mode     = PWM_MODE,
+    .channel        = CH2_PWM,
+    .intr_type      = LEDC_INTR_DISABLE,
+    .timer_sel      = PWM_TIMER,
+    .duty           = 0,
+    .hpoint         = 0
+  };
+  ledc_channel_config(&ch2_conf);
+
+  // Channel 3 setup
+  ledc_channel_config_t ch3_conf = {
+    .gpio_num       = CH3_PIN,
+    .speed_mode     = PWM_MODE,
+    .channel        = CH3_PWM,
+    .intr_type      = LEDC_INTR_DISABLE,
+    .timer_sel      = PWM_TIMER,
+    .duty           = 0,
+    .hpoint         = 0
+  };
+  ledc_channel_config(&ch3_conf);
+
+  setPWM(0, CH1_DEFAULT);
+  setPWM(1, CH2_DEFAULT);
+  setPWM(2, CH3_DEFAULT);
+
+  Serial.println("PWM channels started successfully");
+}
 
 void setup_6050(){
   Wire.begin(MPU6050_SDA, MPU6050_SCL); //GPIO pins for 6050 connection. (SDA, SCL)
@@ -127,8 +200,6 @@ void AccelerometerTask(void *pvParameters) { //task that constantly checks if bo
       }
       float avg = sum / 5.0;
 
-      //Serial.println(avg);
-
       if(!flipped){//if bot is currently marked as right side up
         if(avg < -1 * FLIPPED_Z_THRESHOLD){
           flipped = true;
@@ -142,8 +213,6 @@ void AccelerometerTask(void *pvParameters) { //task that constantly checks if bo
       }
       index = 0;  // Reset buffer
     }
-    
-
     vTaskDelay(50 / portTICK_PERIOD_MS);  // Wait 50ms
   }
 }
@@ -176,23 +245,6 @@ bool is_safe_killswitch_change(int v1, int v2, int v3, int mode){
   }
 }
 
-void write_to_ESCs(int v1, int v2, int v3){
-  //ch1
-  v1 = constrain(v1, DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[0]);
-  int duty1 = (v1 * 65535L) / 20000;           // Convert us to 16-bit duty
-  ledcWrite(1, duty1);    
-
-  //ch1
-  v2 = constrain(v2, DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[0]);
-  int duty2 = (v2 * 65535L) / 20000;           // Convert us to 16-bit duty
-  ledcWrite(1, duty2);    
-
-  //ch1
-  v3 = constrain(v3, DEFAULT_PWM_RANGE[0], DEFAULT_PWM_RANGE[0]);
-  int duty3 = (v3 * 65535L) / 20000;           // Convert us to 16-bit duty
-  ledcWrite(3, duty3);    
-}
-
 void mix_and_write(){
   int forward = ch2 - 1500;
   int turn = ch1 - 1500;
@@ -209,7 +261,19 @@ void mix_and_write(){
   left_motor = constrain(left_motor, 1000, 2000);
   right_motor = constrain(right_motor, 1000, 2000);
 
-  //write_to_ESCs(right_motor, left_motor, CH3_DEFAULT);
+  if(right_motor_reverse){
+    right_motor = 2000 - (right_motor-1000);
+  }
+
+  if(left_motor_reverse){
+    left_motor = 2000 - (left_motor-1000);
+  }
+
+  Serial.printf("Motor output: [%d, %d]\n", right_motor, left_motor);
+
+  setPWM(0, right_motor);
+  setPWM(1, left_motor);
+  setPWM(2, CH3_DEFAULT);
   
 }
 
@@ -279,14 +343,14 @@ void UDP_packet(){
       int v3 = values[2];
       int v4 = values[3];
 
-      Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
+      //Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
 
       execute_package(v1, v2, v3, v4);
 
+      mix_and_write();
       
       bool received = true; 
 
-      // Send back the result as float
       udp.beginPacket(udp.remoteIP(), udp.remotePort());
       udp.write((uint8_t*)&received, sizeof(received));
       udp.endPacket();
@@ -327,6 +391,10 @@ void setup_OTA(){
 //connects to Wi-Fi and begins UDP
 void connectToWiFi() { 
   WiFi.begin(ssid, password);
+
+  // Set lower WiFi transmit power (e.g., 10 dBm)
+  WiFi.setTxPower(WIFI_POWER_7dBm); //lower the transmitter power by 95%. If robots have connection issues, try raising this
+
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -369,5 +437,5 @@ void loop() {
 
   //map and write values
   
-  delay(20);
+  delay(10); //power saving
 }
