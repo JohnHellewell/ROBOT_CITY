@@ -347,7 +347,11 @@ void UDP_packet(){
   if (udp.parsePacket()) {
     //failsafe
     lastPacketReceived = millis();
-    connected = true;
+    if(!connected){
+      connected = true;
+      Serial.println("Connection established; receiving packets");
+    }
+    
 
     uint8_t buf[8];
     int len = udp.read(buf, sizeof(buf));
@@ -375,6 +379,8 @@ void UDP_packet(){
     connected = false;
     excecute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
     mix_and_write();
+
+    Serial.println("Connection dropped! Failsafe enabled");
   }
 }
 
