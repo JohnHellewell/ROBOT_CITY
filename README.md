@@ -17,5 +17,7 @@ The computer will do the following:
   - Display a battle timer clock
   - Display points for each team, and a "winner" screen
   - Controls lights in arena
+**At first, the UI will be text-based. In the future, it will be GUI & sensor-based
+
   
-In the future, I might add a vpn capability to the computer, so I can repair things from anywhere, even uploading code to the robots.
+In the future, I will add a vpn capability to the computer, so I can repair things from anywhere, even uploading code to the robots.
