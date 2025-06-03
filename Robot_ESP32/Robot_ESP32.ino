@@ -7,18 +7,18 @@
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
 
-#define SOFTWARE_VERSION "1.0.4"
+#define SOFTWARE_VERSION "1.0.5"
 
 //Network credentials
 const char* ssid = "Hellewell";
 const char* password = "mac&cheese";
 
 //MPU 6050 pins
-#define MPU6050_SCL 7
-#define MPU6050_SDA 6
+#define MPU6050_SCL 9
+#define MPU6050_SDA 8
 
 //LED
-#define ONBOARD_LED 8
+//#define ONBOARD_LED 8
 
 //UDP
 WiFiUDP udp;
@@ -28,6 +28,10 @@ char incomingPacket[255];
 #define CH1_PIN 0
 #define CH2_PIN 1
 #define CH3_PIN 2
+
+unsigned long lastPacketReceived; //used to measure time
+bool connected = false;
+#define FAILSAFE_DISCONNECT 500 //how many milliseconds of time since no packets received to activate failsafe
 
 // Channels
 #define CH1_PWM LEDC_CHANNEL_1
@@ -72,9 +76,11 @@ void setup(void) {
 
   Serial.print("Running software version ");
   Serial.println(SOFTWARE_VERSION);
+  
+  lastPacketReceived = millis();
 
-  pinMode(ONBOARD_LED, OUTPUT);
-  digitalWrite(ONBOARD_LED, HIGH);
+  //pinMode(ONBOARD_LED, OUTPUT);
+  //digitalWrite(ONBOARD_LED, HIGH);
 
   setup_ESCs();
   
@@ -339,6 +345,10 @@ void execute_package(int v1, int v2, int v3, int v4){
 
 void UDP_packet(){
   if (udp.parsePacket()) {
+    //failsafe
+    lastPacketReceived = millis();
+    connected = true;
+
     uint8_t buf[8];
     int len = udp.read(buf, sizeof(buf));
     if (len == 8) {
@@ -361,6 +371,10 @@ void UDP_packet(){
       udp.write((uint8_t*)&received, sizeof(received));
       udp.endPacket();
     }
+  } else if(connected && millis() - lastPacketReceived >= FAILSAFE_DISCONNECT){ //enable failsafe
+    connected = false;
+    excecute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
+    mix_and_write();
   }
 }
 
