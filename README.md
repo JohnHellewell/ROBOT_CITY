@@ -29,13 +29,13 @@ Pre 6/3/2025:
 - ESP32 code: Connect to WiFi, Connect to & read data from gyroscope, establish "flipped over" protocol, collect Wi-Fi UDP packets, parse UDP data- validate and store values, create mixing function in junction with flipped value, mimic RC PWM values on GPIO pins as output values, establish killswitch behavior, enable wireless re-programming with Arduino OTP
 - Main server: Connect to ESP32, send and receive UDP packets, read game controller values, fix stick drift behavior, constrain and map controller values- then send to ESP32 via UDP, establish killswitch "arming" trigger
 
-6/3: Establish Failsafe behavior. Robots should not move when disconnected, but should attempt to reconnect. Safety protocol
-6/4: Create SQL database. Stores values of each robot. Essential for being able to connect to many robots
-6/5 - 6/6: Create handler program that creates & manages child programs. Each child program represents a pairing between a remote control and a robot. Each child program runs on its own thread
-6/9: Create a python program that can manage the SQL db. Add robots, change active status, edit robots, etc.
-6/10: Create a text-based UI to A) modify SQL db using aformentioned python program B) create and manage pairings between robots, and set the killswitch status by starting/pausing/ending games.
-6/11: Create robot-monitoring function to A) measure latency between each connection B) Alert user if a robot becomes unresponsive
-6/12: Optional: create Controller table in db to store callibration data (to correct stick drift individually) for each controller. Add handler functions and text UI 
-6/13-16: test entire system using multiple ESP32s and controllers. Debug any problems 
+- 6/3: Establish Failsafe behavior. Robots should not move when disconnected, but should attempt to reconnect. Safety protocol
+- 6/4: Create SQL database. Stores values of each robot. Essential for being able to connect to many robots
+- 6/5 - 6/6: Create handler program that creates & manages child programs. Each child program represents a pairing between a remote control and a robot. Each child program runs on its own thread
+- 6/9: Create a python program that can manage the SQL db. Add robots, change active status, edit robots, etc.
+- 6/10: Create a text-based UI to A) modify SQL db using aformentioned python program B) create and manage pairings between robots, and set the killswitch status by starting/pausing/ending games.
+- 6/11: Create robot-monitoring function to A) measure latency between each connection B) Alert user if a robot becomes unresponsive
+- 6/12: Optional: create Controller table in db to store callibration data (to correct stick drift individually) for each controller. Add handler functions and text UI 
+- 6/13-16: test entire system using multiple ESP32s and controllers. Debug any problems 
 
 
