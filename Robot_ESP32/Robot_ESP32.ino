@@ -7,15 +7,18 @@
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
 
-#define SOFTWARE_VERSION "1.0.3"
+#define SOFTWARE_VERSION "1.0.4"
 
 //Network credentials
 const char* ssid = "Hellewell";
 const char* password = "mac&cheese";
 
 //MPU 6050 pins
-#define MPU6050_SCL 9
-#define MPU6050_SDA 8
+#define MPU6050_SCL 7
+#define MPU6050_SDA 6
+
+//LED
+#define ONBOARD_LED 8
 
 //UDP
 WiFiUDP udp;
@@ -69,6 +72,9 @@ void setup(void) {
 
   Serial.print("Running software version ");
   Serial.println(SOFTWARE_VERSION);
+
+  pinMode(ONBOARD_LED, OUTPUT);
+  digitalWrite(ONBOARD_LED, HIGH);
 
   setup_ESCs();
   
