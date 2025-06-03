@@ -377,7 +377,7 @@ void UDP_packet(){
     }
   } else if(connected && millis() - lastPacketReceived >= FAILSAFE_DISCONNECT){ //enable failsafe
     connected = false;
-    excecute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
+    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
     mix_and_write();
 
     Serial.println("Connection dropped! Failsafe enabled");
