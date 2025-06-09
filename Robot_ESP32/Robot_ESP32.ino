@@ -6,19 +6,17 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
+#include "secrets.h" //Wi-Fi credentials
 
-#define SOFTWARE_VERSION "1.0.5"
+#define SOFTWARE_VERSION "1.0.7"
 
-//Network credentials
-const char* ssid = "Hellewell";
-const char* password = "mac&cheese";
 
 //MPU 6050 pins
-#define MPU6050_SCL 9
-#define MPU6050_SDA 8
+#define MPU6050_SCL 9 //9
+#define MPU6050_SDA 8 //8
 
 //LED
-//#define ONBOARD_LED 8
+#define ONBOARD_LED 8
 
 //UDP
 WiFiUDP udp;
@@ -80,7 +78,7 @@ void setup(void) {
   lastPacketReceived = millis();
 
   //pinMode(ONBOARD_LED, OUTPUT);
-  //digitalWrite(ONBOARD_LED, HIGH);
+  //digitalWrite(ONBOARD_LED, LOW);
 
   setup_ESCs();
   
@@ -416,7 +414,7 @@ void setup_OTA(){
 
 //connects to Wi-Fi and begins UDP
 void connectToWiFi() { 
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   // Set lower WiFi transmit power (e.g., 10 dBm)
   WiFi.setTxPower(WIFI_POWER_7dBm); //lower the transmitter power by 95%. If robots have connection issues, try raising this
