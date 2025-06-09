@@ -1,19 +1,19 @@
 import pygame
 import sys
-
+import math
 import pygame
 import socket
 import struct
 import time
 
 # --- UDP Setup ---
-ESP32_IP = "192.168.1.7"
+ESP32_IP = "192.168.1.50"
 PORT = 4210
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
 
 # --- Stick Drift Correction ---
-dead_zone = 40
+dead_zone = 25
 
 # killswitch
 ks = 0
@@ -51,13 +51,21 @@ def scale_axis(value, flip):
     else:
         temp = int((value + 1) * 500 + 1000)
     
-    if abs(1500-temp) <= dead_zone:
-        return 1500
+    #if abs(1500-temp) <= dead_zone:
+    #    return 1500
+    #else:
+    #    return temp
+    return temp
+
+
+def check_dead_zone(a, b):
+    a1 = abs(1500-a)
+    b1 = abs(1500-b)
+
+    if (math.sqrt(a1*a1 + b1*b1)<=dead_zone):
+        return (1500, 1500)
     else:
-        return temp
-
-
-
+        return (a, b)
 
 # --- Main Loop ---
 try:
@@ -73,6 +81,8 @@ try:
 
         ch1 = scale_axis(raw_ch1, False) 
         ch2 = scale_axis(raw_ch2, True) 
+
+        ch1, ch2 = check_dead_zone(ch1, ch2)
 
 
         if not pressed and raw_ch4 > 0:
