@@ -7,6 +7,7 @@
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
 #include "secrets.h" //Wi-Fi credentials
+#include "MC34X9.h"
 
 #define SOFTWARE_VERSION "1.0.7"
 

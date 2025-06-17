@@ -3,12 +3,12 @@ from mysql.connector import Error
 from dotenv import load_dotenv
 import os
 
+#load .env values
 load_dotenv()
-
 MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-MYSQL_HOST = 'localhost'
-TARGET_DB = "ROBOT_CITY"
+MYSQL_HOST = os.getenv("MYSQL_HOST")
+TARGET_DB = os.getenv("TARGET_DB")
 
 CREATE_DB_PATH = 'create_tables.sql'
 FILL_DATA_PATH = 'fill_tables.sql'

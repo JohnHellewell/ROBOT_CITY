@@ -2,74 +2,128 @@ import pygame
 import socket
 import struct
 import threading
-import csv
 import time
+import math
+import mysql.connector
+from mysql.connector import Error
+from dotenv import load_dotenv
+import os
 
 pygame.init()
 pygame.joystick.init()
 
-# ========== CONFIG ==========
-MAX_PLAYERS = 4
-CSV_FILE = "robots.csv"
-SEND_INTERVAL = 0.05  # seconds
 
-# ========== GLOBALS ==========
+MAX_PLAYERS = 4
+SEND_INTERVAL = 0.01  # seconds
+DEAD_ZONE = 25
+
+# global values
 killswitch_value = 0
 pairings = {}  # player_id -> RobotControllerThread
-robots = {}    # robot_id -> (ip, port)
 lock = threading.Lock()
 
-# ========== LOAD ROBOT INFO ==========
-def load_robot_csv():
-    global robots
-    robots = {}
-    with open(CSV_FILE, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            robot_id = row['robot_id']
-            ip = row['local_ip']
-            port = int(row['port'])
-            robots[robot_id] = (ip, port)
+#load .env values
+load_dotenv()
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_HOST = os.getenv("MYSQL_HOST")
+TARGET_DB = os.getenv("TARGET_DB")
 
-# ========== UTILITIES ==========
-def scale_axis(value):
-    return int((value + 1) * 500 + 1000)
+def get_connection(database=None):
+    return mysql.connector.connect(
+        host=MYSQL_HOST,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=TARGET_DB
+    )
 
-# ========== ROBOT THREAD ==========
+def scale_axis(value, flip):
+    temp = 1500
+    if flip:
+        temp = 2000-int((value + 1) * 500)
+    else:
+        temp = int((value + 1) * 500 + 1000)
+
+    return temp
+
+def get_robot_info(robot_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT FROM robot WHERE robot_id = %s", (robot_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if result:
+            return result['local_ip'], int(result['network_port']), [bool(result['CH1_INVERT']), bool(result['CH2_INVERT']), bool(result['CH3_INVERT'])]
+        else:
+            return None
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        return None
+
+def check_dead_zone(a, b):
+    a1 = abs(1500-a)
+    b1 = abs(1500-b)
+
+    if (math.sqrt(a1*a1 + b1*b1)<=DEAD_ZONE):
+        return (1500, 1500)
+    else:
+        return (a, b)
+
+# pairing thread
 class RobotControllerThread(threading.Thread):
-    def __init__(self, player_id, joystick, ip, port):
+    def __init__(self, player_id, joystick, ip, port, inverts):
         super().__init__()
         self.player_id = player_id
         self.joystick = joystick
+
         self.ip = ip
         self.port = port
         self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.daemon = True
+        self.inverts = inverts
 
     def run(self):
         global killswitch_value
         while self.running:
-            ch1 = scale_axis(self.joystick.get_axis(2))  # Right stick X
-            ch2 = scale_axis(self.joystick.get_axis(3))  # Right stick Y
+            ch1 = scale_axis(self.joystick.get_axis(2), self.inverts[0])  # Right stick X
+            ch2 = scale_axis(self.joystick.get_axis(3), self.inverts[1])  # Right stick Y
             ch3 = 1500  # Placeholder for now
+            ch1, ch2 = check_dead_zone(ch1, ch2)
+
             with lock:
                 ks = killswitch_value
+            
             packet = struct.pack('HHHH', ch1, ch2, ch3, ks)
             self.sock.sendto(packet, (self.ip, self.port))
+            
+            try:
+                data, _ = self.sock.recvfrom(1024)
+                result = struct.unpack('?', data[:1])[0]
+                #print("Received bool:", result)
+                if False:
+                    print(result)
+            except socket.timeout:
+                print("No response (timeout)")
+
             time.sleep(SEND_INTERVAL)
 
     def stop(self):
         self.running = False
 
-# ========== GAME MANAGER ==========
+# game manager
 def pair(player_id, robot_id):
     if player_id in pairings:
         print(f"{player_id} is already paired. Break first.")
         return
-    if robot_id not in robots:
-        print(f"Robot ID '{robot_id}' not found.")
+    
+    robot_info = get_robot_info(robot_id)
+    if not robot_info:
+        print(f"Robot ID '{robot_id}' not found in database.")
         return
+    
     index = int(player_id[-1]) - 1
     if index >= pygame.joystick.get_count():
         print(f"No controller found for {player_id}.")
@@ -77,8 +131,8 @@ def pair(player_id, robot_id):
 
     joystick = pygame.joystick.Joystick(index)
     joystick.init()
-    ip, port = robots[robot_id]
-    thread = RobotControllerThread(player_id, joystick, ip, port)
+    ip, port, ch_inverts  = robot_info
+    thread = RobotControllerThread(player_id, joystick, ip, port, ch_inverts)
     pairings[player_id] = thread
     thread.start()
     print(f"Paired {player_id} to {robot_id} ({ip}:{port})")
@@ -110,27 +164,53 @@ def reset():
     pairings = {}
     print("All pairings cleared.")
 
-def show():
+def show_pairings():
     if not pairings:
         print("No active pairings.")
         return
     for player, thread in pairings.items():
         print(f"{player} -> {thread.ip}:{thread.port}")
 
-# ========== MAIN LOOP ==========
+def add_robot():
+    try:
+        robot_id = input("Enter robot ID: ").strip()
+        local_ip = input("Enter local IP address: ").strip()
+        port = int(input("Enter network port: ").strip())
+        ch1_inv = input("Invert CH1? (y/n): ").strip().lower() == 'y'
+        ch2_inv = input("Invert CH2? (y/n): ").strip().lower() == 'y'
+        ch3_inv = input("Invert CH3? (y/n): ").strip().lower() == 'y'
+
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO robot (robot_id, local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (robot_id, local_ip, port, ch1_inv, ch2_inv, ch3_inv))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print(f"Robot '{robot_id}' added successfully.")
+    except mysql.connector.IntegrityError:
+        print("Error: Robot ID already exists.")
+    except ValueError:
+        print("Invalid number input.")
+    except Exception as e:
+        print("Error adding robot:", e)
+
+# main
 if __name__ == "__main__":
-    load_robot_csv()
-    print("Welcome to the Robot Game Manager")
+    
+    print("ROBOT CITY Game Manager")
     print("Type 'help' for a list of commands.")
 
     while True:
         try:
-            cmd = input("Command > ").strip().lower()
+            cmd = input("Command: ").strip().lower()
             if cmd.startswith("pair"):
-                _, player_id, robot_id = cmd.split()
+                ignore, player_id, robot_id = cmd.split()
                 pair(player_id, robot_id)
             elif cmd.startswith("break"):
-                _, player_id = cmd.split()
+                ignore, player_id = cmd.split()
                 break_pair(player_id)
             elif cmd == "start":
                 start_game()
@@ -138,8 +218,10 @@ if __name__ == "__main__":
                 stop_game()
             elif cmd == "reset":
                 reset()
-            elif cmd == "show":
-                show()
+            elif cmd == "show pairings":
+                show_pairings()
+            elif cmd == "add robot":
+                add_robot()
             elif cmd == "exit":
                 reset()
                 break
@@ -150,7 +232,8 @@ if __name__ == "__main__":
                 print("  start")
                 print("  stop")
                 print("  reset")
-                print("  show")
+                print("  show pairings")
+                print("  add robot")
                 print("  exit")
             else:
                 print("Unknown command.")

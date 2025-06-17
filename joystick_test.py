@@ -6,14 +6,14 @@ import socket
 import struct
 import time
 
-# --- UDP Setup ---
+# UDP Setup 
 ESP32_IP = "192.168.1.50"
 PORT = 4210
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
 
-# --- Stick Drift Correction ---
-dead_zone = 25
+# Stick Drift Correction
+dead_zone = 30
 
 # killswitch
 ks = 0
@@ -50,11 +50,7 @@ def scale_axis(value, flip):
         temp = 2000-int((value + 1) * 500)
     else:
         temp = int((value + 1) * 500 + 1000)
-    
-    #if abs(1500-temp) <= dead_zone:
-    #    return 1500
-    #else:
-    #    return temp
+
     return temp
 
 
