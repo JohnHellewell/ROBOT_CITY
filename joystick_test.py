@@ -97,7 +97,7 @@ try:
         # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
         send_and_receive([ch1, ch2, 1500, ks])
 
-        time.sleep(0.01)  
+        time.sleep(0.1)  
 
 except KeyboardInterrupt:
     print("\nExiting...")

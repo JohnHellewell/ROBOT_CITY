@@ -1,5 +1,3 @@
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
 #include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
@@ -7,14 +5,12 @@
 #include <ArduinoOTA.h>
 #include "driver/ledc.h"
 #include "secrets.h" //Wi-Fi credentials
-#include "MC34X9.h"
+#include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.0.7"
+#define SOFTWARE_VERSION "1.1.1"
 
-
-//MPU 6050 pins
-#define MPU6050_SCL 9 //9
-#define MPU6050_SDA 8 //8
+#define SCL 6 //9
+#define SDA 5 //8
 
 //LED
 #define ONBOARD_LED 8
@@ -62,12 +58,14 @@ bool weapon_reverse = false;
 
 const int SAFE_VARIANCE = 25; //in order to switch from kill switch mode 0 to 1 or 2, channels must be this close to the default range
 
-Adafruit_MPU6050 mpu; //object
 float z_offset = 2.5;  // Offset to calibrate Z axis. 2.5 is what's typically adjusted
 float z_accel = 0.0;
 
 volatile bool flipped = false;
 const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above this threshold, bot is considered flipped or unflipped
+
+ChipType chip = MPU6050;
+AccelHandler* accelHandler;
 
 
 void setup(void) {
@@ -78,12 +76,12 @@ void setup(void) {
   
   lastPacketReceived = millis();
 
-  //pinMode(ONBOARD_LED, OUTPUT);
-  //digitalWrite(ONBOARD_LED, LOW);
+  pinMode(ONBOARD_LED, OUTPUT);
+  digitalWrite(ONBOARD_LED, LOW);
 
   setup_ESCs();
   
-  setup_6050();
+  setup_accelerometer();
 
   xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
 
@@ -168,64 +166,48 @@ void setup_ESCs(){
   Serial.println("PWM channels started successfully");
 }
 
-void setup_6050(){
-  Wire.begin(MPU6050_SDA, MPU6050_SCL); //GPIO pins for 6050 connection. (SDA, SCL)
-  
-  // Try to initialize!
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
-    }
-  }
-  Serial.println("MPU6050 Found!");
-
-  //range options: 2_G, 4_G, 8_G, 16_G. Higher range sacrifices accuracy & power usage
-  mpu.setAccelerometerRange(MPU6050_RANGE_4_G); 
-  
-  //range options: 250_DEG, 500_DEG, 1000_DEG, 2000_DEG
-  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-  
-  //bandwidth options: 260_HZ, 184_HZ, 94_HZ, 44_HZ, 21_HZ, 10_HZ, 5_HZ
-  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-
-  calibrateZ(); //calibrate the Z axis
-
-  
+void setup_accelerometer(){
+  accelHandler = new AccelHandler(chip, SDA, SCL);
 }
 
 void AccelerometerTask(void *pvParameters) { //task that constantly checks if bot is flipped over
-  float readings[5] = {0};
+  float readings[5] = {};
   int index = 0;
+  float z;
 
+  Values v = accelHandler->read();
+  z = v.z;
+  
   while (true) {
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-    z_accel = a.acceleration.z + z_offset;
+    Values v = accelHandler->read();
+    z = v.z;
+    
+    readings[index] = z;
+
     index++;
+    index %= 5;
 
-    if (index >= 5) {
-      float sum = 0;
-      for (int i = 0; i < 5; i++) {
-        sum += z_accel;
-      }
-      float avg = sum / 5.0;
-
-      if(!flipped){//if bot is currently marked as right side up
-        if(avg < -1 * FLIPPED_Z_THRESHOLD){
-          flipped = true;
-          Serial.println("FLIPPED!");
-        }
-      } else {//if bot is currently marked as upside down
-        if(avg > FLIPPED_Z_THRESHOLD){
-          flipped = false;
-          Serial.println("FLIPPED!");
-        }
-      }
-      index = 0;  // Reset buffer
+    float sum = 0.0;
+    for(int i=0; i<5; i++){
+      sum += readings[i];
     }
+    float avg = sum/5.0;
+
+    if(!flipped){//if bot is currently marked as right side up
+      if(avg < -1 * FLIPPED_Z_THRESHOLD){
+        flipped = true;
+        Serial.println("FLIPPED!");
+      }
+    } else {//if bot is currently marked as upside down
+      if(avg > FLIPPED_Z_THRESHOLD){
+        flipped = false;
+        Serial.println("FLIPPED!");
+      }
+    }
+
     vTaskDelay(50 / portTICK_PERIOD_MS);  // Wait 50ms
   }
+
 }
 
 int validate_range(int n, bool is_servo){
@@ -433,7 +415,7 @@ void connectToWiFi() {
   Serial.println("UDP listening on port " + String(localPort));
 }
 
-
+/*
 void calibrateZ() {
   Serial.println("Calibrating... Please keep the board flat and still.");
   delay(2000);  // Give user time to settle the board
@@ -452,6 +434,7 @@ void calibrateZ() {
   Serial.print("Calibration complete. Applied Z offset: ");
   Serial.println(z_offset);
 } 
+*/
 
 
 

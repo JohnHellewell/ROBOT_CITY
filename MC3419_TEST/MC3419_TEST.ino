@@ -25,7 +25,7 @@ void loop() {
   Serial.print("Z-Axis (raw): ");
   Serial.print(accData.ZAxis);
   Serial.print("   Z-Axis (g): ");
-  Serial.println(accData.ZAxis_g, 4);
+  Serial.println(accData.ZAxis_g, 1);
 
   delay(20);
 }

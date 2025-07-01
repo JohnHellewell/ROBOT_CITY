@@ -406,27 +406,29 @@ uint8_t mcube_write_regs(bool bSpi, uint8_t chip_select, uint8_t reg,       \
 // Read 8-bit from register
 uint8_t _readRegister8(bool bSpi, uint8_t chip_select, uint8_t reg)
 {
-  uint8_t value;
-  /** 0 = SPI, 1 = I2C */
-  if (!bSpi) { //Reads an 8-bit register with the SPI port.
-    /** SPI read function */
-    //Set active-low CS low to start the SPI cycle
+  uint8_t value = 0;
+
+  if (!bSpi) {
+    // SPI
     digitalWrite(chip_select, LOW);
-    //Send the register address
-    SPI.transfer(reg | 0x80);
-    SPI.transfer(0x00);
-    //Read the value from the register
-    value = SPI.transfer(0x00);
-    //Raise CS
+    SPI.transfer(reg | 0x80); // Set MSB for read
+    SPI.transfer(0x00);       // Dummy write
+    value = SPI.transfer(0x00); // Read data
     digitalWrite(chip_select, HIGH);
-  } else { //Reads an 8-bit register with the SPI port.
-    /** I2C read function */
-    Wire.requestFrom(chip_select, 1, reg, 1, true);
-    value = Wire.read();
+  } else {
+    // I2C
+    Wire.beginTransmission(chip_select);
+    Wire.write(reg);
+    Wire.endTransmission(false); // Send repeated start
+    Wire.requestFrom((int)chip_select, 1);
+    if (Wire.available()) {
+      value = Wire.read();
+    }
   }
 
   return value;
 }
+
 
 // Write 8-bit to register
 void _writeRegister8(bool bSpi, uint8_t chip_select, uint8_t reg, uint8_t value)

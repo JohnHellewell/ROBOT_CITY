@@ -2,7 +2,11 @@
 
 USE ROBOT_CITY;
 
-DROP TABLE IF EXISTS robot;
+DROP DATABASE IF EXISTS ROBOT_CITY;
+
+CREATE DATABASE ROBOT_CITY;
+
+USE ROBOT_CITY;
 
 CREATE TABLE robot (
     robot_id int PRIMARY KEY,
@@ -14,8 +18,6 @@ CREATE TABLE robot (
     CH2_INVERT BOOLEAN DEFAULT 0,
     CH3_INVERT BOOLEAN DEFAULT 0
 );
-
-DROP TABLE IF EXISTS controller;
 
 CREATE TABLE controller (
     controller_id VARCHAR(40) PRIMARY KEY,
@@ -35,4 +37,4 @@ CREATE TABLE battle_history (
     FOREIGN KEY (player2_bot) REFERENCES robot (robot_id),
     FOREIGN KEY (player3_bot) REFERENCES robot (robot_id),
     FOREIGN KEY (player4_bot) REFERENCES robot (robot_id)
-)
+);
