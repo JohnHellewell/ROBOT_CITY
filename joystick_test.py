@@ -23,8 +23,8 @@ ks = 0
 
 # Detect OS
 if platform.system() == "Linux":
-    AXIS_RIGHT_X = 4
-    AXIS_RIGHT_Y = 3
+    AXIS_RIGHT_X = 3
+    AXIS_RIGHT_Y = 4
     AXIS_TRIGGER = 2
 else:
     # Assume Windows (or fallback)
