@@ -7,7 +7,7 @@ import struct
 import time
 
 # UDP Setup 
-ESP32_IP = "192.168.1.50"
+ESP32_IP = "192.168.1.12"
 PORT = 4210
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
@@ -18,18 +18,21 @@ dead_zone = 30
 # killswitch
 ks = 0
 
-
-def send_and_receive(values):
-    assert len(values) == 4
+def send_only(values):
     packet = struct.pack('HHHH', *values)
     sock.sendto(packet, (ESP32_IP, PORT))
-    try:
-        data, _ = sock.recvfrom(1024)
-        result = struct.unpack('?', data[:1])[0]
-        #print("Received bool:", result)
-        return result
-    except socket.timeout:
-        print("No response (timeout)")
+
+#def send_and_receive(values):
+#    assert len(values) == 4
+#    packet = struct.pack('HHHH', *values)
+#    sock.sendto(packet, (ESP32_IP, PORT))
+#    try:
+#        data, _ = sock.recvfrom(1024)
+#        result = struct.unpack('?', data[:1])[0]
+#       #print("Received bool:", result)
+#        return result
+#    except socket.timeout:
+#        print("No response (timeout)")
 
 # --- Gamepad Setup ---
 pygame.init()
@@ -95,9 +98,10 @@ try:
 
             
         # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
-        send_and_receive([ch1, ch2, 1500, ks])
+        #send_and_receive([ch1, ch2, 1500, ks])
+        send_only([ch1, ch2, 1500, ks])
 
-        time.sleep(0.1)  
+        time.sleep(0.010)  
 
 except KeyboardInterrupt:
     print("\nExiting...")

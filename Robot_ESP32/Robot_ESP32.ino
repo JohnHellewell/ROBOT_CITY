@@ -7,10 +7,10 @@
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.1.1"
+#define SOFTWARE_VERSION "1.1.2"
 
-#define SCL 6 //9
-#define SDA 5 //8
+#define SCL 7 //7
+#define SDA 6 //6
 
 //LED
 #define ONBOARD_LED 8
@@ -20,9 +20,9 @@ WiFiUDP udp;
 const unsigned int localPort = 4210;  // Arbitrary port. Each robot should have its own port
 char incomingPacket[255];
 
-#define CH1_PIN 0
-#define CH2_PIN 1
-#define CH3_PIN 2
+#define CH1_PIN 2 //0
+#define CH2_PIN 1 //1
+#define CH3_PIN 3 //2
 
 unsigned long lastPacketReceived; //used to measure time
 bool connected = false;
@@ -52,8 +52,8 @@ int ch2 = CH2_DEFAULT;
 int ch3 = CH3_DEFAULT; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
 
-bool right_motor_reverse = true;
-bool left_motor_reverse = false;
+bool right_motor_reverse = false;
+bool left_motor_reverse = true;
 bool weapon_reverse = false;
 
 const int SAFE_VARIANCE = 25; //in order to switch from kill switch mode 0 to 1 or 2, channels must be this close to the default range
@@ -81,9 +81,9 @@ void setup(void) {
 
   setup_ESCs();
   
-  setup_accelerometer();
+  //setup_accelerometer();
 
-  xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
+  //xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
 
   connectToWiFi();
 
@@ -324,6 +324,43 @@ void execute_package(int v1, int v2, int v3, int v4){
   }
 }
 
+void UDP_packet() {
+  int len = 0;
+  while (udp.parsePacket()) {
+    len = udp.read((uint8_t*)incomingPacket, sizeof(incomingPacket));
+  }
+
+  if (len == 8) {
+    lastPacketReceived = millis();
+
+    if (!connected) {
+      connected = true;
+      Serial.println("Connection established; receiving packets");
+    }
+
+    uint16_t* values = (uint16_t*)incomingPacket;
+    int v1 = values[0];
+    int v2 = values[1];
+    int v3 = values[2];
+    int v4 = values[3];
+
+    execute_package(v1, v2, v3, v4);
+    mix_and_write();
+
+    bool received = true;
+    udp.beginPacket(udp.remoteIP(), udp.remotePort());
+    udp.write((uint8_t*)&received, sizeof(received));
+    udp.endPacket();
+  } else if (connected && millis() - lastPacketReceived >= FAILSAFE_DISCONNECT) {
+    connected = false;
+    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
+    mix_and_write();
+    Serial.println("Connection dropped! Failsafe enabled");
+  }
+}
+
+
+/*
 void UDP_packet(){
   if (udp.parsePacket()) {
     //failsafe
@@ -363,7 +400,7 @@ void UDP_packet(){
 
     Serial.println("Connection dropped! Failsafe enabled");
   }
-}
+}*/
 
 void setup_OTA(){
   ArduinoOTA
