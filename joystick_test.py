@@ -5,6 +5,7 @@ import pygame
 import socket
 import struct
 import time
+import platform
 
 # UDP Setup 
 ESP32_IP = "192.168.1.10"
@@ -17,6 +18,20 @@ dead_zone = 30
 
 # killswitch
 ks = 0
+
+#joystick setup**********
+
+# Detect OS
+if platform.system() == "Linux":
+    AXIS_RIGHT_X = 4
+    AXIS_RIGHT_Y = 3
+    AXIS_TRIGGER = 2
+else:
+    # Assume Windows (or fallback)
+    AXIS_RIGHT_X = 2
+    AXIS_RIGHT_Y = 3
+    AXIS_TRIGGER = 4
+
 
 def send_only(values):
     packet = struct.pack('HHHH', *values)
@@ -73,9 +88,10 @@ try:
         pygame.event.pump()
 
         # Read axis 4 and 5 (right stick typically)
-        raw_ch1 = joystick.get_axis(2)  # Right stick horizontal
-        raw_ch2 = joystick.get_axis(3)  # Right stick vertical
-        raw_ch4 = joystick.get_axis(4)  # Left trigger: killswitch
+        raw_ch1 = joystick.get_axis(AXIS_RIGHT_X)  # Right stick horizontal
+        raw_ch2 = joystick.get_axis(AXIS_RIGHT_Y)  # Right stick vertical
+        raw_ch4 = joystick.get_axis(AXIS_TRIGGER)  # Left trigger: killswitch
+
 
 
         ch1 = scale_axis(raw_ch1, False) 
