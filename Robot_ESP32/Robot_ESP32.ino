@@ -7,7 +7,7 @@
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.1.2"
+#define SOFTWARE_VERSION "1.1.3"
 
 #define SCL 7 //7
 #define SDA 6 //6
@@ -254,6 +254,7 @@ void mix_and_write(){
   left_motor = constrain(left_motor, 1000, 2000);
   right_motor = constrain(right_motor, 1000, 2000);
 
+
   if(right_motor_reverse){
     right_motor = 2000 - (right_motor-1000);
   }
@@ -266,7 +267,7 @@ void mix_and_write(){
 
   setPWM(0, right_motor);
   setPWM(1, left_motor);
-  setPWM(2, CH3_DEFAULT);
+  setPWM(2, ch3);
   
 }
 
@@ -358,49 +359,6 @@ void UDP_packet() {
     Serial.println("Connection dropped! Failsafe enabled");
   }
 }
-
-
-/*
-void UDP_packet(){
-  if (udp.parsePacket()) {
-    //failsafe
-    lastPacketReceived = millis();
-    if(!connected){
-      connected = true;
-      Serial.println("Connection established; receiving packets");
-    }
-    
-
-    uint8_t buf[8];
-    int len = udp.read(buf, sizeof(buf));
-    if (len == 8) {
-      uint16_t* values = (uint16_t*)buf;
-      // Extract values
-      int v1 = values[0];
-      int v2 = values[1];
-      int v3 = values[2];
-      int v4 = values[3];
-
-      //Serial.printf("Received: [%d, %d, %d, %d]\n", v1, v2, v3, v4);
-
-      execute_package(v1, v2, v3, v4);
-
-      mix_and_write();
-      
-      bool received = true; 
-
-      udp.beginPacket(udp.remoteIP(), udp.remotePort());
-      udp.write((uint8_t*)&received, sizeof(received));
-      udp.endPacket();
-    }
-  } else if(connected && millis() - lastPacketReceived >= FAILSAFE_DISCONNECT){ //enable failsafe
-    connected = false;
-    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
-    mix_and_write();
-
-    Serial.println("Connection dropped! Failsafe enabled");
-  }
-}*/
 
 void setup_OTA(){
   ArduinoOTA

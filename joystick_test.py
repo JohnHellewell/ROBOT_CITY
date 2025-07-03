@@ -25,12 +25,14 @@ ks = 0
 if platform.system() == "Linux":
     AXIS_RIGHT_X = 3
     AXIS_RIGHT_Y = 4
-    AXIS_TRIGGER = 2
+    AXIS_LEFT_TRIGGER = 2
+    AXIS_RIGHT_TRIGGER = 5
 else:
     # Assume Windows (or fallback)
     AXIS_RIGHT_X = 2
     AXIS_RIGHT_Y = 3
-    AXIS_TRIGGER = 4
+    AXIS_LEFT_TRIGGER = 4
+    AXIS_RIGHT_TRIGGER = 5
 
 
 def send_only(values):
@@ -71,6 +73,17 @@ def scale_axis(value, flip):
 
     return temp
 
+def scale_axis_spinner(value, flip):
+    if value < -1.0 or value > 1.0:
+        print('CH3 OUT OF BOUNDS!')
+        return 1500
+    value = (value+1)/2
+    
+    if flip:
+        return 1500-int(value * 500)
+    else:
+        return 1500+int(value * 500)
+
 
 def check_dead_zone(a, b):
     a1 = abs(1500-a)
@@ -90,13 +103,14 @@ try:
         # Read axis 4 and 5 (right stick typically)
         raw_ch1 = joystick.get_axis(AXIS_RIGHT_X)  # Right stick horizontal
         raw_ch2 = joystick.get_axis(AXIS_RIGHT_Y)  # Right stick vertical
-        raw_ch4 = joystick.get_axis(AXIS_TRIGGER)  # Left trigger: killswitch
+        raw_ch3 = joystick.get_axis(AXIS_RIGHT_TRIGGER) #Right Trigger: Weapon
+        raw_ch4 = joystick.get_axis(AXIS_LEFT_TRIGGER)  # Left trigger: killswitch
 
 
 
         ch1 = scale_axis(raw_ch1, False) 
         ch2 = scale_axis(raw_ch2, True) 
-
+        ch3 = scale_axis_spinner(raw_ch3, False)
         ch1, ch2 = check_dead_zone(ch1, ch2)
 
 
@@ -110,12 +124,12 @@ try:
             pressed = False
         
         
-        print(f"ch1: {ch1}, ch2: {ch2}, ks: {ks}, left trig: {raw_ch4}")
+        print(f"ch1: {ch1}, ch2: {ch2}, ch3: {ch3},ks: {ks}, left trig: {raw_ch4}")
 
             
         # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
         #send_and_receive([ch1, ch2, 1500, ks])
-        send_only([ch1, ch2, 1500, ks])
+        send_only([ch1, ch2, ch3, ks])
 
         time.sleep(0.010)  
 
