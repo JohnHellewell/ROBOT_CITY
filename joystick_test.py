@@ -19,6 +19,9 @@ dead_zone = 30
 # killswitch
 ks = 0
 
+# weapon scaling
+weapon_scale = 0.4 #must be between 0.0 and 1.0
+
 #joystick setup**********
 
 # Detect OS
@@ -80,9 +83,9 @@ def scale_axis_spinner(value, flip):
     value = (value+1)/2
     
     if flip:
-        return 1500-int(value * 500)
+        return 1500-int(value * 500 * weapon_scale)
     else:
-        return 1500+int(value * 500)
+        return 1500+int(value * 500 * weapon_scale)
 
 
 def check_dead_zone(a, b):
@@ -110,7 +113,7 @@ try:
 
         ch1 = scale_axis(raw_ch1, False) 
         ch2 = scale_axis(raw_ch2, True) 
-        ch3 = scale_axis_spinner(raw_ch3, False)
+        ch3 = scale_axis_spinner(raw_ch3, True)
         ch1, ch2 = check_dead_zone(ch1, ch2)
 
 
