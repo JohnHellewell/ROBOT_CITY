@@ -439,7 +439,8 @@ void connectToWiFi() {
   // Set lower WiFi transmit power (e.g., 10 dBm)
   WiFi.setTxPower(WIFI_POWER_20dBm); //lower the transmitter power by 95%. If robots have connection issues, try raising this
 
-  Serial.print("Connecting to WiFi");
+  Serial.print("Connecting to WiFi Network ");
+  Serial.print(WIFI_SSID);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
