@@ -7,10 +7,10 @@
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.1.3"
+#define SOFTWARE_VERSION "1.2.0"
 
-#define SCL 7 //7
-#define SDA 6 //6
+#define SCL 6 //6
+#define SDA 7 //7
 
 //LED
 #define ONBOARD_LED 8
@@ -64,7 +64,7 @@ float z_accel = 0.0;
 volatile bool flipped = false;
 const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above this threshold, bot is considered flipped or unflipped
 
-ChipType chip = MPU6050;
+ChipType chip = chip_MPU6050;
 AccelHandler* accelHandler;
 
 
@@ -81,9 +81,9 @@ void setup(void) {
 
   setup_ESCs();
   
-  //setup_accelerometer();
+  setup_accelerometer();
 
-  //xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
+  xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
 
   connectToWiFi();
 
@@ -181,7 +181,6 @@ void AccelerometerTask(void *pvParameters) { //task that constantly checks if bo
   while (true) {
     Values v = accelHandler->read();
     z = v.z;
-    
     readings[index] = z;
 
     index++;

@@ -2,15 +2,16 @@
 #define ACCEL_HANDLER_H
 
 //#include <Arduino>
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
+//#include <Adafruit_MPU6050.h>
+//#include <Adafruit_Sensor.h>
+#include <MPU6050.h>
 #include "MC34X9.h"
 
 
 
 enum ChipType {
-  MPU6050,
-  MC3419
+  chip_MPU6050,
+  chip_MC3419
 };
 
 struct Values {
@@ -22,7 +23,7 @@ struct Values {
 class AccelHandler {
   private:
   ChipType chipType;
-  Adafruit_MPU6050 mpu6050;
+  MPU6050 mpu6050;
   MC34X9 mc3419;
 
   public:
