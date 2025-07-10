@@ -295,6 +295,27 @@ def edit_robot():
     except Exception as e:
         print("Error editing robot:", e)
 
+def show_robots():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT robot_id, local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT FROM robot")
+        robots = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not robots:
+            print("No robots found in database.")
+            return
+
+        print(f"{'Robot ID':<15} {'IP Address':<15} {'Port':<6} CH1_INV CH2_INV CH3_INV")
+        print("-" * 60)
+        for r in robots:
+            print(f"{r['robot_id']:<15} {r['local_ip']:<15} {r['network_port']:<6}  {bool(r['CH1_INVERT']):<7} {bool(r['CH2_INVERT']):<7} {bool(r['CH3_INVERT']):<7}")
+
+    except Exception as e:
+        print("Error showing robots:", e)
+
 
 if __name__ == "__main__":
     print("ROBOT CITY Game Manager")
@@ -331,6 +352,8 @@ if __name__ == "__main__":
                 remove_robot()
             elif cmd == "edit robot":
                 edit_robot()
+            elif cmd == "show robots":
+                show_robots()
             elif cmd == "exit":
                 reset()
                 break
@@ -345,6 +368,7 @@ if __name__ == "__main__":
                 print("  add robot")
                 print("  remove robot")
                 print("  edit robot")
+                print("  show robots")
                 print("  exit")
             else:
                 print("Unknown command.")
