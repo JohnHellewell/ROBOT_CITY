@@ -100,6 +100,10 @@ class RobotControllerThread(threading.Thread):
                 ks = killswitch_value
             
             packet = struct.pack('HHHH', ch1, ch2, ch3, ks)
+
+            #test
+            print(f"Sending to {self.ip}:{self.port} → ch1={ch1}, ch2={ch2}, ch3={ch3}, ks={ks}")
+
             self.sock.sendto(packet, (self.ip, self.port))
 
             time.sleep(SEND_INTERVAL)
