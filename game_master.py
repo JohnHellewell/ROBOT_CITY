@@ -75,7 +75,7 @@ def check_dead_zone(a, b):
 class RobotControllerThread(threading.Thread):
     def __init__(self, player_id, joystick, ip, port, inverts):
         super().__init__()
-        self.sock.settimeout(0.05)  
+        
 
         self.player_id = player_id
         self.joystick = joystick
@@ -84,6 +84,7 @@ class RobotControllerThread(threading.Thread):
         self.port = port
         self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.settimeout(0.05)  
         self.daemon = True
         self.inverts = inverts
 
