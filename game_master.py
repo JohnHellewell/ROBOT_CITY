@@ -239,6 +239,63 @@ def add_robot():
     except Exception as e:
         print("Error adding robot:", e)
 
+def remove_robot():
+    robot_id = input("Enter robot ID to remove: ").strip()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM robot WHERE robot_id = %s", (robot_id,))
+        if cursor.rowcount == 0:
+            print(f"No robot found with ID '{robot_id}'.")
+        else:
+            conn.commit()
+            print(f"Robot '{robot_id}' removed successfully.")
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print("Error removing robot:", e)
+
+def edit_robot():
+    robot_id = input("Enter robot ID to edit: ").strip()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM robot WHERE robot_id = %s", (robot_id,))
+        robot = cursor.fetchone()
+        if not robot:
+            print(f"No robot found with ID '{robot_id}'.")
+            cursor.close()
+            conn.close()
+            return
+
+        print("Leave blank to keep current value.")
+        new_ip = input(f"Current IP is {robot['local_ip']}. New IP: ").strip()
+        new_port_input = input(f"Current port is {robot['network_port']}. New port: ").strip()
+        new_ch1_inv = input(f"Current CH1 invert is {bool(robot['CH1_INVERT'])} (y/n): ").strip().lower()
+        new_ch2_inv = input(f"Current CH2 invert is {bool(robot['CH2_INVERT'])} (y/n): ").strip().lower()
+        new_ch3_inv = input(f"Current CH3 invert is {bool(robot['CH3_INVERT'])} (y/n): ").strip().lower()
+
+        # If user left blank, keep old values
+        ip = new_ip if new_ip else robot['local_ip']
+        port = int(new_port_input) if new_port_input else robot['network_port']
+        ch1_inv = robot['CH1_INVERT'] if new_ch1_inv == '' else (new_ch1_inv == 'y')
+        ch2_inv = robot['CH2_INVERT'] if new_ch2_inv == '' else (new_ch2_inv == 'y')
+        ch3_inv = robot['CH3_INVERT'] if new_ch3_inv == '' else (new_ch3_inv == 'y')
+
+        cursor.execute("""
+            UPDATE robot SET local_ip = %s, network_port = %s, CH1_INVERT = %s, CH2_INVERT = %s, CH3_INVERT = %s
+            WHERE robot_id = %s
+        """, (ip, port, ch1_inv, ch2_inv, ch3_inv, robot_id))
+
+        conn.commit()
+        print(f"Robot '{robot_id}' updated successfully.")
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        print("Error editing robot:", e)
+
+
 if __name__ == "__main__":
     print("ROBOT CITY Game Manager")
     print("Type 'help' for a list of commands.")
@@ -270,6 +327,10 @@ if __name__ == "__main__":
                 show_pairings()
             elif cmd == "add robot":
                 add_robot()
+            elif cmd == "remove robot":
+                remove_robot()
+            elif cmd == "edit robot":
+                edit_robot()
             elif cmd == "exit":
                 reset()
                 break
@@ -282,6 +343,8 @@ if __name__ == "__main__":
                 print("  reset")
                 print("  show pairings")
                 print("  add robot")
+                print("  remove robot")
+                print("  edit robot")
                 print("  exit")
             else:
                 print("Unknown command.")
