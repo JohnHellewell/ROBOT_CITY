@@ -84,7 +84,7 @@ class RobotControllerThread(threading.Thread):
         self.port = port
         self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.settimeout(0.05)  
+        self.sock.settimeout(0.02)  
         self.daemon = True
         self.inverts = inverts
 
@@ -101,15 +101,6 @@ class RobotControllerThread(threading.Thread):
             
             packet = struct.pack('HHHH', ch1, ch2, ch3, ks)
             self.sock.sendto(packet, (self.ip, self.port))
-            
-            try:
-                data, _ = self.sock.recvfrom(1024)
-                result = struct.unpack('?', data[:1])[0]
-                #print("Received bool:", result)
-                if False:
-                    print(result)
-            except socket.timeout:
-                print("No response (timeout)")
 
             time.sleep(SEND_INTERVAL)
 
