@@ -7,7 +7,7 @@
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.2.0"
+#define SOFTWARE_VERSION "1.2.3"
 
 #define SCL 6 //6
 #define SDA 7 //7
@@ -192,15 +192,15 @@ void AccelerometerTask(void *pvParameters) { //task that constantly checks if bo
     }
     float avg = sum/5.0;
 
-    if(!flipped){//if bot is currently marked as right side up
-      if(avg < -1 * FLIPPED_Z_THRESHOLD){
-        flipped = true;
-        Serial.println("FLIPPED!");
-      }
-    } else {//if bot is currently marked as upside down
-      if(avg > FLIPPED_Z_THRESHOLD){
+    if(flipped){//if bot is currently marked as upside down
+      if(avg < -FLIPPED_Z_THRESHOLD){
         flipped = false;
-        Serial.println("FLIPPED!");
+        Serial.println("FLIPPED! Right side up");
+      }
+    } else {//if bot is currently marked as right side up
+      if(avg > FLIPPED_Z_THRESHOLD){
+        flipped = true;
+        Serial.println("FLIPPED! Upside down");
       }
     }
 
@@ -240,18 +240,22 @@ bool is_safe_killswitch_change(int v1, int v2, int v3, int mode){
 void mix_and_write(){
   int forward = ch2 - 1500;
   int turn = ch1 - 1500;
+  int weapon = ch3 - 1500;
 
-  if(flipped){ //reverses the drive control
-    forward = 1000 - turn;
+  if(flipped){ //reverses drive and weapon. Note: turning is always correct and does not need to be flipped
+    forward = -forward;
+    weapon = -weapon;
   }
 
   // Mixed motor signals
   int left_motor = 1500 + forward + turn;
   int right_motor = 1500 + forward - turn;
+  int weapon_motor = 1500 + weapon;
 
   // Clamp to PWM range
   left_motor = constrain(left_motor, 1000, 2000);
   right_motor = constrain(right_motor, 1000, 2000);
+  weapon_motor = constrain(weapon_motor, 1000, 2000);
 
 
   if(right_motor_reverse){
@@ -266,7 +270,7 @@ void mix_and_write(){
 
   setPWM(0, right_motor);
   setPWM(1, left_motor);
-  setPWM(2, ch3);
+  setPWM(2, weapon_motor);
   
 }
 
@@ -399,8 +403,13 @@ void connectToWiFi() {
   Serial.print("Connecting to WiFi Network ");
   Serial.print(WIFI_SSID);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(250);
     Serial.print(".");
+    pinMode(ONBOARD_LED, OUTPUT);
+    digitalWrite(ONBOARD_LED, HIGH);
+    delay(250);
+    pinMode(ONBOARD_LED, OUTPUT);
+    digitalWrite(ONBOARD_LED, LOW);
   }
   Serial.println("\nWiFi connected!");
   Serial.print("IP Address: ");
