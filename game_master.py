@@ -138,8 +138,8 @@ class RobotControllerThread(threading.Thread):
             # elif pressed and raw_ch4 == -1.0:
             #     pressed = False
 
-            print(f"[{self.player_id}] Raw axes: X={raw_ch1:.2f} Y={raw_ch2:.2f} TRIG={raw_ch3:.2f} LT={raw_ch4:.2f}")
-            print(f"[{self.player_id}] Sending ch1={ch1}, ch2={ch2}, ch3={ch3}, ks={ks}")
+            #print(f"[{self.player_id}] Raw axes: X={raw_ch1:.2f} Y={raw_ch2:.2f} TRIG={raw_ch3:.2f} LT={raw_ch4:.2f}")
+            #print(f"[{self.player_id}] Sending ch1={ch1}, ch2={ch2}, ch3={ch3}, ks={ks}")
 
             packet = struct.pack('HHHH', ch1, ch2, ch3, ks)
             try:
