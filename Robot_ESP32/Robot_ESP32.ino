@@ -388,7 +388,7 @@ void setup_OTA(){
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
 
-  ArduinoOTA.setPassword("1234"); // No password. Put a string in here to add a password
+  ArduinoOTA.setPassword(OTA_PASSWORD); // No password. Put a string in here to add a password
   ArduinoOTA.begin();
   Serial.println("OTA Ready");
 }

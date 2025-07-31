@@ -8,7 +8,7 @@ import time
 import platform
 
 # UDP Setup 
-ESP32_IP = "192.168.1.10"
+ESP32_IP = "192.168.0.12"
 PORT = 4210
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
