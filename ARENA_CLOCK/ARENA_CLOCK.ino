@@ -304,7 +304,7 @@ void effect321(){
 
 void displaySeconds(uint32_t time){
   colonToggle(true);
-
+  
   // Round up seconds by adding 999 ms before dividing
   int totalSeconds = (time + 999) / 1000;
 
@@ -323,17 +323,17 @@ void displaySeconds(uint32_t time){
 
 void displayMillis(uint32_t time){
   colonToggle(true);
-  
-  // Round up seconds the same way here
-  int totalSeconds = (time + 999) / 1000;
+  int j = time;
+  int s = j/1000;
+  int ten_ms = j%1000/100;
+  int ms = j%100/10;
 
-  int ten_ms = (time % 1000) / 100;
-  int ms = (time % 100) / 10;
+  Serial.printf("displayMillis -> s: %d, ten_ms: %d, ms: %d\n", s, ten_ms, ms);
 
-  if (totalSeconds == 0) {
-    displayDigits(totalSeconds, ten_ms, ms, false, true, true);
+  if(s==0){
+    displayDigits(s, ten_ms, ms, false, true, true);
   } else {
-    displayDigits(totalSeconds, ten_ms, ms, true, true, true);
+    displayDigits(s, ten_ms, ms, true, true, true);
   }
 }
 
