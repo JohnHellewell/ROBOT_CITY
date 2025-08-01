@@ -23,6 +23,8 @@ const long interval = 10000; // Check every 10 seconds
 const unsigned int localPort = 4010;
 WiFiUDP udp;
 TaskHandle_t wifiMonitorTask = NULL;
+TaskHandle_t otaTask = NULL;
+
 
 
 void setup() {
@@ -74,7 +76,7 @@ void initializePins(){
   Serial.println("Pins initialized successfully");
 }
 
-void displayDigits(int c, int b, int a){
+void displayDigits(int a, int b, int c, bool aOn, bool bOn, bool cOn){
   // Force RBI HIGH before writing any digits
   for(int i = 0; i < 3; i++) {
     if(rbiPin[i] != -1) {
@@ -96,13 +98,21 @@ void displayDigits(int c, int b, int a){
   }
 
   int display[] = {a, b, c};
+  int toggle[] = {aOn, bOn, cOn};
 
   for(int i=0; i<3; i++){
-    // Set the binary value of i on pins A–D
-    digitalWrite(pinA[i], bitRead(display[i], 0)); // Bit 0 (LSB)
-    digitalWrite(pinB[i], bitRead(display[i], 1)); // Bit 1
-    digitalWrite(pinC[i], bitRead(display[i], 2)); // Bit 2
-    digitalWrite(pinD[i], bitRead(display[i], 3)); // Bit 3 (MSB)
+    //first, toggle the display where needed
+    if(!toggle[i]){
+      digitalWrite(biPin[2-i], LOW);
+    } else {
+      digitalWrite(biPin[2-i], HIGH);
+    }
+
+    // Set the binary value of digit on pins A–D
+    digitalWrite(pinA[i], bitRead(display[2-i], 0)); // Bit 0 (LSB)
+    digitalWrite(pinB[i], bitRead(display[2-i], 1)); // Bit 1
+    digitalWrite(pinC[i], bitRead(display[2-i], 2)); // Bit 2
+    digitalWrite(pinD[i], bitRead(display[2-i], 3)); // Bit 3 (MSB)
   }
 }
 
@@ -140,7 +150,7 @@ void connectToWiFi() {
     NULL,               // Parameters
     1,                  // Priority
     &wifiMonitorTask,
-    1                   // Core 1 (can also be core 0)
+    0                   // Core 1 (can also be core 0)
   );
 
 }
@@ -162,53 +172,101 @@ void wifiMonitorTaskFunction(void* parameter) {
 
 void setup_OTA(){
   ArduinoOTA
-  .onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-      type = "sketch";
-    else // U_SPIFFS
-      type = "filesystem";
-    Serial.println("Start updating " + type);
-  })
-  .onEnd([]() {
-    Serial.println("\nEnd");
-  })
-  .onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  })
-  .onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+      Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+      Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
 
-  ArduinoOTA.setPassword(OTA_PASSWORD); // No password. Put a string in here to add a password
+  ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.begin();
+
   Serial.println("OTA Ready");
+
+  // Create OTA handler task
+  xTaskCreatePinnedToCore(
+    otaTaskFunction,   // Task function
+    "OTA Task",        // Name of task
+    4096,              // Stack size
+    NULL,              // Parameters
+    1,                 // Priority
+    &otaTask,          // Task handle
+    0                  // Core 0
+  );
 }
 
+void otaTaskFunction(void* parameter) {
+  while (true) {
+    ArduinoOTA.handle();
+    vTaskDelay(pdMS_TO_TICKS(50)); // Check every 100 ms
+  }
+}
+
+void colonToggle(bool on){
+  if(on){
+    digitalWrite(colonPin, HIGH);
+  } else {
+    digitalWrite(colonPin, LOW);
+  }
+}
+
+
+
 void loop() {
-  ArduinoOTA.handle(); //checks for incoming OTA programming
+  colonToggle(true);
+  for (int i = 180; i >=10; i--) {
+    int min = i/60;
+    int tens = i%60/10;
+    int sec = i%10;
 
-  
-  for (int i = 180; i >=0; i--) {
-    //Serial.print("Testing digit ");
-    //Serial.println(i);
-    displayDigits(i/60, (i%60/10), i%10); // Show two 7s and one varying digit
+    if(min == 0){
+      if(i == 10){
+        displayDigits(0, 1, 0, false, true, true);
+        delay(10);
+        //count down in ms
+        for(int j=10000-10; j>=0; j-=10){
+          int s = j/1000;
+          int ten_ms = j%1000/100;
+          int ms = j%100/10;
+          displayDigits(s, ten_ms, ms, true, true, true);
+          delay(10);
+        }
 
-    if(i%2==0){
-      digitalWrite(8, LOW);
-      digitalWrite(5, LOW);
-      digitalWrite(14, LOW);
-      digitalWrite(colonPin, LOW);
+        //flash zeros
+        for(int j=0; j<3; j++){
+          displayDigits(0, 0, 0, true, true, true);
+          colonToggle(false);
+          delay(500);
+          displayDigits(0, 0, 0, false, false, false);
+          colonToggle(true);
+          delay(500);
+        }
+        colonToggle(false);
+        delay(2000);
+
+        //thats it
+      } else {
+        displayDigits(min, tens, sec, false, true, true); //blanks out the 0 on the minutes
+      }
     } else {
-      digitalWrite(8, HIGH);
-      digitalWrite(5, HIGH);
-      digitalWrite(14, HIGH);
-      digitalWrite(colonPin, HIGH);
+      displayDigits(min, tens, sec, true, true, true); // Show two 7s and one varying digit
     }
 
     delay(1000);
