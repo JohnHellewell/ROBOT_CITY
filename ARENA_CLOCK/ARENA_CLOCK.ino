@@ -328,8 +328,6 @@ void displayMillis(uint32_t time){
   int ten_ms = j%1000/100;
   int ms = j%100/10;
 
-  Serial.printf("displayMillis -> s: %d, ten_ms: %d, ms: %d\n", s, ten_ms, ms);
-
   if(s==0){
     displayDigits(s, ten_ms, ms, false, true, true);
   } else {
@@ -340,7 +338,7 @@ void displayMillis(uint32_t time){
 void effectKO(){
   displaySeconds(current_ms);
 
-  for(int j=0; j<4; j++){
+  for(int j=0; j<3; j++){
     blankDisplay(false);
     colonToggle(true);
     delay(1000);
@@ -362,9 +360,8 @@ void executeCommand(uint32_t command, uint32_t time_ms){
       break;
     } 
     case 2: { //pause
-      currentState = PAUSED;
-      delay(20);
       current_ms = time_ms;
+      currentState = PAUSED;
       break;
     }
     case 3: { //Resume
@@ -398,11 +395,15 @@ void counting(){
     current_ms = original_time - (millis() - time_start);
 
     //decide whether to display seconds or ms:
+    /*
     if(current_ms < 1000*10){ //under ten seconds
       displayMillis(current_ms);
     } else { //normal
       displaySeconds(current_ms);
-    }
+    }*/
+    //no special effects, just continue counting down to 0
+    displaySeconds(current_ms);
+
     delay(10);
   }
 
@@ -442,6 +443,7 @@ void paused(){
       blankDisplay(true);
       colonToggle(false);
     } else {
+      displaySeconds(current_ms);
       blankDisplay(false);
       colonToggle(true);
     }
