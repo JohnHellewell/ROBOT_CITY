@@ -4,6 +4,9 @@
 #include <ArduinoOTA.h>
 #include "secrets.h" //Wi-Fi credentials
 
+#define UDP_PORT 50001
+WiFiUDP udp;
+
 // Define the 4 BCD input pins for DM7447AN
 const int pinA[] = {12, 17, 1}; // LSB
 const int pinB[] = {19, 10, 15};
@@ -11,21 +14,25 @@ const int pinC[] = {20, 9, 7}; //INSTEAD OF 46, 15
 const int pinD[] = {13, 18, 2}; // MSB
 
 // Other control pins
-const int lampTestPin[] = {-1, -1, -1};  // LT
 const int biPin[] = {14, 8, 5};        // BI/RBO (When LOW, turns off display)
-const int rbiPin[] = {-1, -1, -1};      // RBI
 
 const int fanPin = 35;
 const int colonPin = 36;
 
-unsigned long previousMillis = 0;
-const long interval = 10000; // Check every 10 seconds
-const unsigned int localPort = 4010;
-WiFiUDP udp;
+//WiFiUDP udp;
 TaskHandle_t wifiMonitorTask = NULL;
 TaskHandle_t otaTask = NULL;
+TaskHandle_t udpTaskHandle;
 
+enum ClockState {
+  WAITING,
+  PAUSED,
+  COUNTING,
+  KO
+};
+volatile uint32_t current_ms = 0;
 
+volatile ClockState currentState = WAITING;
 
 void setup() {
   Serial.begin(115200);
@@ -36,6 +43,7 @@ void setup() {
 
   setup_OTA();
   
+  waiting();
 }
 
 void initializePins(){
@@ -45,9 +53,7 @@ void initializePins(){
 
   //setup colon
   pinMode(colonPin, OUTPUT);
-  digitalWrite(colonPin, HIGH); //colon ON
-
-
+  digitalWrite(colonPin, LOW); //colon OFF initially
 
   // Set BCD input pins and bi control pins as OUTPUT
   for(int i=0; i<3; i++){
@@ -57,43 +63,48 @@ void initializePins(){
     pinMode(pinD[i], OUTPUT);
 
     pinMode(biPin[i], OUTPUT);
-    digitalWrite(biPin[i], HIGH); //set display to ON 
+    digitalWrite(biPin[i], LOW); //set display to OFF 
   }
-
-  //Set all unneeded control pins to HIGH (except those that are already tied high, denoted by -1)
-  for(int i=0; i<3; i++){
-    if(lampTestPin[i] != -1){
-      pinMode(lampTestPin[i], OUTPUT);
-      digitalWrite(lampTestPin[i], HIGH);
-    }
-
-    if(rbiPin[i] != -1){
-      pinMode(rbiPin[i], OUTPUT);
-      digitalWrite(rbiPin[i], HIGH);
-    }
-  }
-
   Serial.println("Pins initialized successfully");
 }
 
+void blankDisplay(bool blank){ //turns the whole display on or off
+  if(blank){
+    for(int i = 0; i < 3; i++) {
+      if(biPin[i] != -1) {
+        digitalWrite(biPin[i], LOW);
+      }
+    }
+  } else {
+    for(int i = 0; i < 3; i++) {
+      if(biPin[i] != -1) {
+        digitalWrite(biPin[i], HIGH);
+      }
+    }
+  }
+}
+
 void displayDigits(int a, int b, int c, bool aOn, bool bOn, bool cOn){
-  // Force RBI HIGH before writing any digits
+  // Force BI HIGH before writing any digits
   for(int i = 0; i < 3; i++) {
-    if(rbiPin[i] != -1) {
-      digitalWrite(rbiPin[i], HIGH);
+    if(biPin[i] != -1) {
+      digitalWrite(biPin[i], HIGH);
     }
   }
 
   if(a < 0 || a >= 10){
-    Serial.println("Digit out of range!! Must be 0-9");
+    //Serial.println("Digit out of range!! Must be 0-9. Received arg a with: ");
+    //Serial.print(a);
     return;
   }
   if(b < 0 || b >= 10){
-    Serial.println("Digit out of range!! Must be 0-9");
+    //Serial.println("Digit out of range!! Must be 0-9. Received arg b with: ");
+    //Serial.print(b);
     return;
   }
   if(c < 0 || c >= 10){
-    Serial.println("Digit out of range!! Must be 0-9");
+    //Serial.println("Digit out of range!! Must be 0-9. Received arg c with: ");
+    //Serial.print(c);
     return;
   }
 
@@ -118,31 +129,27 @@ void displayDigits(int a, int b, int c, bool aOn, bool bOn, bool cOn){
 
 //connects to Wi-Fi and begins UDP
 void connectToWiFi() { 
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  // Set lower WiFi transmit power (e.g., 10 dBm)
-  //WiFi.setTxPower(WIFI_POWER_20dBm); //lower the transmitter power by 95%. If robots have connection issues, try raising this
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to WiFi Network ");
   Serial.print(WIFI_SSID);
 
-  int attempts = 20;
+  int attempts = 0;
   while (WiFi.status() != WL_CONNECTED) {
+    wiFiConnectingEffect(attempts);
     delay(500);
     Serial.print(".");
-    if(attempts <= 0){
+    if(attempts > 21){
       ESP.restart();
     }
-    attempts--;
+    attempts++;
   }
   Serial.println("\nWiFi connected!");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
-  udp.begin(localPort);
-  Serial.println("UDP listening on port " + String(localPort));
-
-  // Start WiFi monitor task on core 1
+  // Start WiFi monitor task on core 0
   xTaskCreatePinnedToCore(
     wifiMonitorTaskFunction,    // Task function
     "WiFi Monitor",     // Name
@@ -150,9 +157,67 @@ void connectToWiFi() {
     NULL,               // Parameters
     1,                  // Priority
     &wifiMonitorTask,
-    0                   // Core 1 (can also be core 0)
+    0                   // Core 0 (can also be core 1)
   );
 
+  xTaskCreatePinnedToCore(
+    [](void* param) { handleUDPControl(); }, // task function
+    "UDPListener",                          // name
+    4096,                                   // stack size
+    NULL,                                   // task param
+    1,                                      // priority
+    &udpTaskHandle,                         // task handle
+    0                                       // core 0
+  );
+
+}
+
+void handleUDPControl() {
+  udp.begin(UDP_PORT);
+  while (true) {
+    int packetSize = udp.parsePacket();
+    if (packetSize > 0) {
+      Serial.printf("Packet received, size: %d\n", packetSize);
+      if (packetSize == 4) {  // 2 bytes command + 2 bytes time_ds
+        uint8_t buffer[4];
+        int len = udp.read(buffer, sizeof(buffer));
+        if (len == 4) {
+          uint16_t command;
+          uint16_t time_ds; // time in deciseconds (ms / 100)
+
+          memcpy(&command, buffer, 2);
+          memcpy(&time_ds, buffer + 2, 2);
+
+          // Convert from network byte order (big endian) to host order
+          command = ntohs(command);
+          time_ds = ntohs(time_ds);
+
+          // Convert deciseconds back to milliseconds
+          uint32_t time_ms = time_ds * 100;
+
+          Serial.print("Command: "); Serial.println(command);
+          Serial.print("Time (ms): "); Serial.println(time_ms);
+
+          executeCommand(command, time_ms);
+        }
+      } else {
+        Serial.printf("Received invalid packet size: %d\n", packetSize);
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+
+void wiFiConnectingEffect(int attempts){ //delays are done in the wifi function
+  colonToggle(false);
+  if(attempts%3==0){
+    displayDigits(0, 0, 0, true, false, false);
+  } else if(attempts%3==1){
+    displayDigits(0, 0, 0, false, true, false);
+  } else {
+    displayDigits(0, 0, 0, false, false, true);
+  }
 }
 
 void wifiMonitorTaskFunction(void* parameter) {
@@ -227,49 +292,213 @@ void colonToggle(bool on){
   }
 }
 
+void effect321(){
+  colonToggle(false);
+  for(int i=3; i>0; i--){
+    displayDigits(0, i, 0, false, true, false);
+    delay(500);
+    displayDigits(0, i, 0, false, false, false);
+    delay(500);
+  }
+}
 
-
-void loop() {
+void displaySeconds(uint32_t time){
   colonToggle(true);
-  for (int i = 180; i >=10; i--) {
-    int min = i/60;
-    int tens = i%60/10;
-    int sec = i%10;
 
-    if(min == 0){
-      if(i == 10){
-        displayDigits(0, 1, 0, false, true, true);
-        delay(10);
-        //count down in ms
-        for(int j=10000-10; j>=0; j-=10){
-          int s = j/1000;
-          int ten_ms = j%1000/100;
-          int ms = j%100/10;
-          displayDigits(s, ten_ms, ms, true, true, true);
-          delay(10);
-        }
+  // Round up seconds by adding 999 ms before dividing
+  int totalSeconds = (time + 999) / 1000;
 
-        //flash zeros
-        for(int j=0; j<3; j++){
-          displayDigits(0, 0, 0, true, true, true);
-          colonToggle(false);
-          delay(500);
-          displayDigits(0, 0, 0, false, false, false);
-          colonToggle(true);
-          delay(500);
-        }
-        colonToggle(false);
-        delay(2000);
+  int min = totalSeconds / 60;
+  int sec = totalSeconds % 60;
 
-        //thats it
-      } else {
-        displayDigits(min, tens, sec, false, true, true); //blanks out the 0 on the minutes
-      }
-    } else {
-      displayDigits(min, tens, sec, true, true, true); // Show two 7s and one varying digit
-    }
+  int tens = sec / 10;
+  int ones = sec % 10;
 
+  if (min == 0) {
+    displayDigits(min, tens, ones, false, true, true); // blank leading zero
+  } else {
+    displayDigits(min, tens, ones, true, true, true);
+  }
+}
+
+void displayMillis(uint32_t time){
+  colonToggle(true);
+  
+  // Round up seconds the same way here
+  int totalSeconds = (time + 999) / 1000;
+
+  int ten_ms = (time % 1000) / 100;
+  int ms = (time % 100) / 10;
+
+  if (totalSeconds == 0) {
+    displayDigits(totalSeconds, ten_ms, ms, false, true, true);
+  } else {
+    displayDigits(totalSeconds, ten_ms, ms, true, true, true);
+  }
+}
+
+void effectKO(){
+  displaySeconds(current_ms);
+
+  for(int j=0; j<4; j++){
+    blankDisplay(false);
+    colonToggle(true);
+    delay(1000);
+    blankDisplay(true);
+    colonToggle(false);
     delay(1000);
   }
+}
+
+void executeCommand(uint32_t command, uint32_t time_ms){
+  switch (command) {
+    case 0: { //reset clock
+      current_ms = time_ms;
+      break;
+    }
+    case 1: { //start countdown
+      current_ms = time_ms;
+      currentState = COUNTING;
+      break;
+    } 
+    case 2: { //pause
+      currentState = PAUSED;
+      delay(20);
+      current_ms = time_ms;
+      break;
+    }
+    case 3: { //Resume
+      current_ms = time_ms;
+      currentState = COUNTING;
+      break;
+    }
+    case 4: { //add time
+      current_ms = time_ms;
+      break;            
+    }
+    case 5: { //KO
+      current_ms = time_ms;
+      currentState = KO;
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+}
+
+void counting(){
+  //do the 321 effect, then start counting
+  effect321();
+
+  uint32_t time_start = millis();
+  uint32_t original_time = current_ms;
+  while(currentState == COUNTING && current_ms > 0){
+    //current_ms = millis() - time_start; //decrease current_ms by how many ms have actually passed
+    current_ms = original_time - (millis() - time_start);
+
+    //decide whether to display seconds or ms:
+    if(current_ms < 1000*10){ //under ten seconds
+      displayMillis(current_ms);
+    } else { //normal
+      displaySeconds(current_ms);
+    }
+    delay(10);
+  }
+
+  switch(currentState){
+    case WAITING: { //cancels whole thing
+      waiting();
+      break;
+    }
+    case PAUSED: {
+      paused();
+      break;
+    }
+    case KO: {
+      ko();
+      break;
+    }
+    default: {
+      ko(); 
+      break;
+    }
+  }
+  
+}
+
+void ko(){
+  effectKO();
+  currentState = WAITING;
+  waiting();
+}
+
+void paused(){
+  int interval = 1000; //how often it blinks / unblinks
+  unsigned long start = millis();
+  while(currentState == PAUSED){
+    unsigned long waiting = millis() - start;
+    if((waiting/interval)%2==0){
+      blankDisplay(true);
+      colonToggle(false);
+    } else {
+      blankDisplay(false);
+      colonToggle(true);
+    }
+    delay(20);
+  }
+
+  switch(currentState){
+    case WAITING: { 
+      waiting();
+      break;
+    }
+    case COUNTING: {
+      counting();
+      break;
+    }
+    case KO: {
+      ko();
+      break;
+    }
+    default: {
+      waiting(); 
+      break;
+    }
+  }
+}
+
+void waiting(){
+  //blank screen
+  blankDisplay(true);
+  colonToggle(false);
+
+  unsigned long waiting_start = millis();
+  while(currentState == WAITING){ //prevents millis() from overflow by restarting if left waiting for 8hrs
+    if(millis() - waiting_start > 1000*60*60*8){
+      ESP.restart();
+    }
+    delay(20);
+  }
+
+  switch(currentState){
+    case PAUSED: { //shouldn't go from waiting to paused. ignore command
+      waiting();
+      break;
+    }
+    case COUNTING: {
+      counting();
+      break;
+    }
+    default: {
+      waiting(); 
+      break;
+    }
+  }
+
+}
+
+void loop() {
+  
 }
 
