@@ -3,6 +3,11 @@ import struct
 import time
 import threading
 
+from lighting_control import LightingController
+
+#Lights
+lights = LightingController()
+
 # UDP config
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 ip = '192.168.8.7'  # your ESP32 IP
@@ -46,6 +51,7 @@ def start_match():
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
     send_command(1, remaining_ms)
+    lights.battle_start()
 
 
 def pause_match():

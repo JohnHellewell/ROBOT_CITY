@@ -17,3 +17,10 @@ client = wrapper.Client()
 client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
 
 wrapper.Run()
+
+#8ch: [red, green, blue, white, amber, UV, strobe, master dimmer]
+# Red, Green, Blue: main colors. They work as expected
+# White: corrects it to true white when put at same level with R, G, B
+# Amber
+# strobe: percentage of time on. Put at 100% for no strobe
+# master dimmer is master dimmer
