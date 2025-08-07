@@ -33,7 +33,7 @@ class LightingController:
         self.data[2] = b
         self.send_dmx()
 
-    def battle_start(self):
+    def _battle_start_sequence(self):
         self.data = [0] * 512
         self.data[6] = 255
         self.data[7] = 255
@@ -45,6 +45,9 @@ class LightingController:
             self.send_dmx()
             time.sleep(0.5)
         self.rgb(255, 255, 255)
+
+    def battle_start(self):
+        threading.Thread(target=self._battle_start_sequence, daemon=True).start()
     
     def off(self):
         self.data = [0] * 512
