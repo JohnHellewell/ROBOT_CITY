@@ -1,8 +1,6 @@
-# lighting_controller.py
-
-from ola.ClientWrapper import ClientWrapper
 import threading
 import time
+from ola.ClientWrapper import ClientWrapper
 
 UNIVERSE = 1
 
@@ -12,69 +10,87 @@ class LightingController:
         self.client = self.wrapper.Client()
         self.data = [0] * 512
 
-        # Start the OLA event loop in the background
+        # Event loop thread
         self.thread = threading.Thread(target=self.wrapper.Run)
         self.thread.daemon = True
         self.thread.start()
-        self.send_dmx(self.data)
+
+        # Event to control wait loop
+        self.waiting = threading.Event()
+        self.wait_thread = None
 
     def send_dmx(self, data=None):
         if data is None:
             data = self.data
 
         def dmx_sent(status):
-            pass  # No printout, silent success/failure
+            pass  # Silent
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
 
-    def rgb(self, r, g, b, white = 0):
+    def rgb(self, r, g, b):
         self.data[0] = r
         self.data[1] = g
         self.data[2] = b
-        self.data[3] = white
         self.send_dmx()
 
-    def _battle_start_sequence(self):
-        self.data = [0] * 512
-        self.data[6] = 255
-        self.data[7] = 255
-        for _ in range(3):
-            self.data[0] = 255
-            self.send_dmx()
-            time.sleep(0.5)
-            self.data[0] = 0
-            self.send_dmx()
-            time.sleep(0.5)
-        self.rgb(255, 255, 255, 255)
-    
     def _wait_loop(self):
-        while True:
+        self.waiting.set()
+        while self.waiting.is_set():
             for r in range(256):
+                if not self.waiting.is_set(): return
                 self.rgb(r, 0, 0)
                 time.sleep(0.01)
             for g in range(256):
+                if not self.waiting.is_set(): return
                 self.rgb(255 - g, g, 0)
                 time.sleep(0.01)
             for b in range(256):
+                if not self.waiting.is_set(): return
                 self.rgb(0, 255 - b, b)
                 time.sleep(0.01)
             for r in range(256):
+                if not self.waiting.is_set(): return
                 self.rgb(r, 0, 255 - r)
                 time.sleep(0.01)
 
     def wait(self):
-        threading.Thread(target=self._wait_loop, daemon=True).start()        
+        # Stop any existing loop
+        self.stop_wait()
+        self.wait_thread = threading.Thread(target=self._wait_loop, daemon=True)
+        self.wait_thread.start()
+
+    def stop_wait(self):
+        self.waiting.clear()
+        if self.wait_thread and self.wait_thread.is_alive():
+            self.wait_thread.join(timeout=1)
+            self.wait_thread = None
 
     def battle_start(self):
-        threading.Thread(target=self._battle_start_sequence, daemon=True).start()
-    
-    def off(self):
-        self.data = [0] * 512
-        self.send_dmx(self.data)
+        self.stop_wait()
+        def _run():
+            self.data = [0]*512
+            self.data[6] = 255
+            self.data[7] = 255
+            for _ in range(3):
+                self.data[0] = 255
+                self.send_dmx()
+                time.sleep(0.5)
+                self.data[0] = 0
+                self.send_dmx()
+                time.sleep(0.5)
+            self.rgb(255, 255, 255)
+        threading.Thread(target=_run, daemon=True).start()
 
     def pause(self):
-        self.data = [0] * 512
+        self.stop_wait()
+        self.data = [0]*512
         self.data[2] = 255  # Blue
         self.data[6] = 255
         self.data[7] = 255
+        self.send_dmx()
+
+    def off(self):
+        self.stop_wait()
+        self.data = [0]*512
         self.send_dmx()
