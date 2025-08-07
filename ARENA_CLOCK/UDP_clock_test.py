@@ -50,8 +50,11 @@ def start_match():
     match_start_time = int(time.time() * 1000)
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
+
+    lights.battle_start() #lights
+
     send_command(1, remaining_ms)
-    lights.battle_start()
+    
 
 
 def pause_match():
@@ -162,4 +165,5 @@ def main():
             print("Unknown command. Valid commands: start, pause, resume, add, ko, exit.")
 
 if __name__ == "__main__":
+    lights.off()
     main()

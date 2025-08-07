@@ -16,6 +16,7 @@ class LightingController:
         self.thread = threading.Thread(target=self.wrapper.Run)
         self.thread.daemon = True
         self.thread.start()
+        self.send_dmx(self.data)
 
     def send_dmx(self, data=None):
         if data is None:
@@ -44,6 +45,10 @@ class LightingController:
             self.send_dmx()
             time.sleep(0.5)
         self.rgb(255, 255, 255)
+    
+    def off(self):
+        self.data = [0] * 512
+        self.send_dmx(self.data)
 
     def pause(self):
         self.data = [0] * 512
