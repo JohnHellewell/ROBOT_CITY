@@ -45,7 +45,7 @@ def main():
 
 def battle_start():
     data = [0, 0, 0, 0, 0, 0, 255, 255] + [0]*504
-    for i in 3:
+    for i in range(3):
         data[0] = 255
         send_dmx(data)
         time.sleep(0.5)
