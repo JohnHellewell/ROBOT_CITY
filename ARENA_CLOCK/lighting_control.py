@@ -28,10 +28,11 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
 
-    def rgb(self, r, g, b):
+    def rgb(self, r, g, b, white = 0):
         self.data[0] = r
         self.data[1] = g
         self.data[2] = b
+        self.white[3] = white
         self.send_dmx()
 
     def _wait_loop(self):
@@ -79,7 +80,7 @@ class LightingController:
                 self.data[0] = 0
                 self.send_dmx()
                 time.sleep(0.5)
-            self.rgb(255, 255, 255)
+            self.rgb(255, 255, 255, 255)
         threading.Thread(target=_run, daemon=True).start()
 
     def pause(self):
