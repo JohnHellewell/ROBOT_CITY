@@ -46,6 +46,24 @@ class LightingController:
             self.send_dmx()
             time.sleep(0.5)
         self.rgb(255, 255, 255, 255)
+    
+    def _wait_loop(self):
+        while True:
+            for r in range(256):
+                self.rgb(r, 0, 0)
+                time.sleep(0.01)
+            for g in range(256):
+                self.rgb(255 - g, g, 0)
+                time.sleep(0.01)
+            for b in range(256):
+                self.rgb(0, 255 - b, b)
+                time.sleep(0.01)
+            for r in range(256):
+                self.rgb(r, 0, 255 - r)
+                time.sleep(0.01)
+
+    def wait(self):
+        threading.Thread(target=self._wait_loop, daemon=True).start()        
 
     def battle_start(self):
         threading.Thread(target=self._battle_start_sequence, daemon=True).start()

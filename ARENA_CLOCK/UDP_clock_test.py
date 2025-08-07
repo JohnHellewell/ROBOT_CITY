@@ -84,7 +84,7 @@ def ko_match():
     remaining_ms = get_remaining_time()
     current_state = "waiting"
     match_start_time = None
-    lights.off()
+    lights.wait()
     send_command(5, remaining_ms)
     print("Match ended with KO. Returning to waiting state.")
 
@@ -106,7 +106,7 @@ def monitor_timer():
                 remaining_ms = MATCH_DURATION_MS
                 match_start_time = None
                 match_end_time = None
-                lights.off() #lights
+                lights.wait() #lights
         time.sleep(0.1)
 
 def main():
@@ -163,11 +163,12 @@ def main():
 
         elif cmd == "exit":
             print("Exiting timer control.")
+            lights.off()
             break
 
         else:
             print("Unknown command. Valid commands: start, pause, resume, add, ko, exit.")
 
 if __name__ == "__main__":
-    lights.off()
+    lights.wait()
     main()
