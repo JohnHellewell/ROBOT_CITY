@@ -51,6 +51,7 @@ def start_match():
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
 
+    reset_lights()
     lights.battle_start() #lights
 
     send_command(1, remaining_ms)
@@ -61,6 +62,7 @@ def pause_match():
     global remaining_ms, current_state, match_end_time
     remaining_ms = get_remaining_time()
     current_state = "paused"
+    reset_lights()
     lights.pause() # lights
     send_command(2, remaining_ms)
 
@@ -69,6 +71,7 @@ def resume_match():
     match_start_time = int(time.time() * 1000)
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
+    reset_lights()
     lights.battle_start()
     send_command(3, remaining_ms)
 
@@ -108,6 +111,9 @@ def monitor_timer():
                 match_end_time = None
                 lights.wait() #lights
         time.sleep(0.1)
+
+def reset_lights():
+    lights = LightingController()
 
 def main():
     global current_state, match_start_time
@@ -163,6 +169,7 @@ def main():
 
         elif cmd == "exit":
             print("Exiting timer control.")
+            reset_lights()
             lights.off()
             break
 
