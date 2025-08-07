@@ -61,6 +61,7 @@ def pause_match():
     global remaining_ms, current_state, match_end_time
     remaining_ms = get_remaining_time()
     current_state = "paused"
+    lights.pause() # lights
     send_command(2, remaining_ms)
 
 def resume_match():
@@ -68,6 +69,7 @@ def resume_match():
     match_start_time = int(time.time() * 1000)
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
+    lights.battle_start()
     send_command(3, remaining_ms)
 
 def add_time(new_time_ms):
@@ -82,6 +84,7 @@ def ko_match():
     remaining_ms = get_remaining_time()
     current_state = "waiting"
     match_start_time = None
+    lights.off()
     send_command(5, remaining_ms)
     print("Match ended with KO. Returning to waiting state.")
 
