@@ -32,7 +32,7 @@ class LightingController:
         self.data[0] = r
         self.data[1] = g
         self.data[2] = b
-        self.white[3] = white
+        self.data[3] = white
         self.send_dmx()
 
     def _wait_loop(self):
