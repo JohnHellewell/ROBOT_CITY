@@ -106,6 +106,7 @@ def monitor_timer():
                 remaining_ms = MATCH_DURATION_MS
                 match_start_time = None
                 match_end_time = None
+                lights.off() #lights
         time.sleep(0.1)
 
 def main():
