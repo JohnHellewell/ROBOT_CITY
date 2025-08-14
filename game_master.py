@@ -137,10 +137,15 @@ class RobotControllerThread(threading.Thread):
             raw_ch1 = self.joystick.get_axis(AXIS_RIGHT_X)
             raw_ch2 = self.joystick.get_axis(AXIS_RIGHT_Y)
             raw_ch3 = self.joystick.get_axis(AXIS_RIGHT_TRIGGER)
-            raw_ch4 = self.joystick.get_axis(AXIS_LEFT_TRIGGER)
+            #raw_ch4 = self.joystick.get_axis(AXIS_LEFT_TRIGGER)
 
-            ch1 = scale_axis_drive(raw_ch1, self.inverts[0], self.bot_info[0])
-            ch2 = scale_axis_drive(raw_ch2, self.inverts[1], self.bot_info[1])
+            if(self.inverts[3]): #swap steer and for/back channels
+                ch2 = scale_axis_drive(raw_ch1, self.inverts[0], self.bot_info[0])
+                ch1 = scale_axis_drive(raw_ch2, self.inverts[1], self.bot_info[1])
+            else: #normal operation
+                ch1 = scale_axis_drive(raw_ch1, self.inverts[0], self.bot_info[0])
+                ch2 = scale_axis_drive(raw_ch2, self.inverts[1], self.bot_info[1])
+            
             ch3 = scale_axis_spinner(raw_ch3, self.inverts[2], self.bot_info[2], self.bot_info[3])
 
             ch1, ch2 = check_dead_zone(ch1, ch2)
