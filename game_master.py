@@ -354,10 +354,27 @@ def show_robots():
             print("No robots found in database.")
             return
 
+        # Map database columns to shorter display names
+        display_map = {
+            'robot_id': 'ID',
+            'local_ip': 'IP',
+            'network_port': 'Port',
+            'robot_type': 'Type',
+            'color': 'Color',
+            'CH1_INVERT': 'ch1_inv',
+            'CH2_INVERT': 'ch2_inv',
+            'CH3_INVERT': 'ch3_inv',
+            'INVERT_DRIVE': 'inv_drv',
+            'steering_limit': 'steer_lim',
+            'forward_limit': 'for_lim',
+            'weapon_limit': 'wpn_lim',
+            'bidirectional_weapon': 'bi_dir_wpn'
+        }
+
         # Set maximum column widths
         max_widths = {
             'robot_id': 6,
-            'local_ip': 15,  # enough for "192.168.X.XXX"
+            'local_ip': 15,
             'network_port': 5,
             'robot_type': 12,
             'color': 8,
@@ -371,14 +388,14 @@ def show_robots():
             'bidirectional_weapon': 5
         }
 
-        # Header
+        # Print header
         header = ""
-        for col in max_widths:
-            header += col.ljust(max_widths[col]+2)
+        for col in display_map:
+            header += display_map[col].ljust(max_widths[col]+2)
         print(header)
         print("-" * len(header))
 
-        # Rows
+        # Print rows
         for r in robots:
             row_str = ""
             for col, width in max_widths.items():
@@ -395,8 +412,6 @@ def show_robots():
 
     except Exception as e:
         print("Error showing robots:", e)
-
-
 
 
 if __name__ == "__main__":
