@@ -7,7 +7,7 @@
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.3.0"
+#define SOFTWARE_VERSION "1.3.1"
 
 //************************ Fill this section out for each individual robot *******************************
 const unsigned int localPort = 4220;  // Each robot should have its own port
@@ -253,10 +253,13 @@ void mix_and_write(){
     weapon = ch3 - 1000;
   }
 
-  if(flipped){ //reverses drive and weapon. Note: turning is always correct and does not need to be flipped
+ if(flipped){ 
     forward = -forward;
-    weapon = -weapon;
+    if(BIDIRECTIONAL_WEAPON){
+        weapon = -weapon;
+    }
   }
+
 
   // Mixed motor signals
   int left_motor = 1500 + forward + turn;
