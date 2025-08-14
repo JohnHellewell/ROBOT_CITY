@@ -49,25 +49,34 @@ else:
     AXIS_LEFT_TRIGGER = 4
     AXIS_RIGHT_TRIGGER = 5
 
-def scale_axis(value, flip):
+
+
+def scale_axis_drive(value, flip, limit):
     if value < -1.0 or value > 1.0:
         print("Axis value out of range:", value)
         value = 0.0
     if flip:
-        return 2000 - int((value + 1) * 500)
+        return 2000 - int((value + 1) * 500 * limit)
     else:
-        return int((value + 1) * 500 + 1000)
+        return int((value + 1) * 500 * limit) + 1000
 
-def scale_axis_spinner(value, flip, weapon_scale=0.4):
+def scale_axis_spinner(value, ch3_invert, weapon_scale, bidirectional):
     # Normalize trigger axis from [-1..1] to [0..1]
     if value < -1.0 or value > 1.0:
         print('CH3 OUT OF BOUNDS!')
         value = 0.0
     norm_val = (value + 1) / 2
-    if flip:
-        return 1500 - int(norm_val * 500 * weapon_scale)
+
+    if ch3_invert:
+        if(bidirectional):
+            return 1500 - int(norm_val * 500 * weapon_scale)
+        else:
+            return 2000 - int(norm_val * 1000 * weapon_scale)
     else:
-        return 1500 + int(norm_val * 500 * weapon_scale)
+        if(bidirectional):
+            return 1500 + int(norm_val * 500 * weapon_scale)
+        else:
+            return 1000 + int(norm_val * 1000 * weapon_scale)
 
 def check_dead_zone(a, b):
     dist = math.sqrt((1500 - a) ** 2 + (1500 - b) ** 2)
@@ -80,7 +89,9 @@ def get_robot_info(robot_id):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            "SELECT local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT FROM robot WHERE robot_id = %s",
+            "SELECT local_ip, network_port, robot_type, color, CH1_INVERT, CH2_INVERT, CH3_INVERT, INVERT_DRIVE, " \
+            "steering_limit, forward_limit, weapon_limit, bidirectional_weapon FROM robot " \
+            "JOIN robot_type ON robot.robot_type = robot_type.bot_type WHERE robot_id = %s",
             (robot_id,)
         )
         result = cursor.fetchone()
@@ -90,22 +101,26 @@ def get_robot_info(robot_id):
             return (
                 result['local_ip'],
                 int(result['network_port']),
-                [bool(result['CH1_INVERT']), bool(result['CH2_INVERT']), bool(result['CH3_INVERT'])]
+                [bool(result['CH1_INVERT']), bool(result['CH2_INVERT']), bool(result['CH3_INVERT']), bool(result['INVERT_DRIVE'])],
+                [float(result['steering_limit']), float(result['forward_limit']), float(result['weapon_limit']), bool(result['bidirectional_weapon'])]
             )
         else:
             return None
     except mysql.connector.Error as err:
         print("Database error:", err)
         return None
+    
+
 
 class RobotControllerThread(threading.Thread):
-    def __init__(self, player_id, joystick, ip, port, inverts):
+    def __init__(self, player_id, joystick, ip, port, inverts, bot_info):
         super().__init__()
         self.player_id = player_id
         self.joystick = joystick
         self.ip = ip
         self.port = port
         self.inverts = inverts
+        self.bot_info = bot_info
         self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(0.01)  # short timeout for recvfrom
@@ -122,9 +137,9 @@ class RobotControllerThread(threading.Thread):
             raw_ch3 = self.joystick.get_axis(AXIS_RIGHT_TRIGGER)
             raw_ch4 = self.joystick.get_axis(AXIS_LEFT_TRIGGER)
 
-            ch1 = scale_axis(raw_ch1, self.inverts[0])
-            ch2 = scale_axis(raw_ch2, self.inverts[1])
-            ch3 = scale_axis_spinner(raw_ch3, self.inverts[2])
+            ch1 = scale_axis_drive(raw_ch1, self.inverts[0], self.bot_info[0])
+            ch2 = scale_axis_drive(raw_ch2, self.inverts[1], self.bot_info[1])
+            ch3 = scale_axis_spinner(raw_ch3, self.inverts[2], self.bot_info[2], self.bot_info[3])
 
             ch1, ch2 = check_dead_zone(ch1, ch2)
 
@@ -175,8 +190,8 @@ def pair(player_id, robot_id):
 
     joystick = pygame.joystick.Joystick(index)
     joystick.init()
-    ip, port, inverts = robot_info
-    thread = RobotControllerThread(player_id, joystick, ip, port, inverts)
+    ip, port, inverts, bot_info = robot_info
+    thread = RobotControllerThread(player_id, joystick, ip, port, inverts, bot_info)
     pairings[player_id] = thread
     thread.start()
     print(f"Paired {player_id} to {robot_id} ({ip}:{port})")
