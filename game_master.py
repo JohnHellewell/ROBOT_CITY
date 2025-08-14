@@ -297,7 +297,7 @@ def edit_robot():
         new_port_input = input(f"Current port is {robot['network_port']}. New port: ").strip()
         new_robot_type = input(f"Current bot type is {robot['robot_type']}. New bot type: ").strip()
         new_color = input(f"Current color is {robot['color']}. New color: ").strip()
-        new_invert_drive = input(f"Current invert_drive is {bool(robot['invert_drive'])}. Only change this if robot turns when supposed to go forward. (y/n): ").strip().lower()
+        new_invert_drive = input(f"Current invert_drive is {bool(robot['INVERT_DRIVE'])}. Only change this if robot turns when supposed to go forward. (y/n): ").strip().lower()
         new_ch1_inv = input(f"Current CH1 invert is {bool(robot['CH1_INVERT'])} (y/n): ").strip().lower()
         new_ch2_inv = input(f"Current CH2 invert is {bool(robot['CH2_INVERT'])} (y/n): ").strip().lower()
         new_ch3_inv = input(f"Current CH3 invert is {bool(robot['CH3_INVERT'])} (y/n): ").strip().lower()
