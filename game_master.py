@@ -149,7 +149,8 @@ class RobotControllerThread(threading.Thread):
                 # print(f"[{self.player_id}] Received ack: {ack}")
             except socket.timeout:
                 #print(f"[{self.player_id}] No response (timeout)")
-                print("")
+                #print("")
+                pass
 
             time.sleep(SEND_INTERVAL)
 

@@ -7,22 +7,28 @@
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.2.3"
+#define SOFTWARE_VERSION "1.3.0"
 
-#define SCL 6 //6
-#define SDA 7 //7
+//************************ Fill this section out for each individual robot *******************************
+const unsigned int localPort = 4220;  // Each robot should have its own port
+const bool BIDIRECTIONAL_WEAPON = false; //must reflect the ESC settings
+ChipType chip = chip_MPU6050; //standard for first batch of boards
+//********************************************************************************************************
+
+#define SCL 6 
+#define SDA 7 
 
 //LED
 #define ONBOARD_LED 8
 
 //UDP
 WiFiUDP udp;
-const unsigned int localPort = 4210;  // Arbitrary port. Each robot should have its own port
+
 char incomingPacket[255];
 
-#define CH1_PIN 2 //0
-#define CH2_PIN 1 //1
-#define CH3_PIN 3 //2
+#define CH1_PIN 1 
+#define CH2_PIN 2 
+#define CH3_PIN 3 
 
 unsigned long lastPacketReceived; //used to measure time
 bool connected = false;
@@ -45,26 +51,26 @@ const bool SERVO_BOT = false; //true if bot is equipped with servo weapon, false
 
 const int CH1_DEFAULT = 1500; 
 const int CH2_DEFAULT = 1500;
-const int CH3_DEFAULT = 1500; //normally would be 1000 for weapon to be off. But ESC is set to bidirectional
+int CH3_DEFAULT = BIDIRECTIONAL_WEAPON ? 1500 : 1000;
 
 int ch1 = CH1_DEFAULT; 
 int ch2 = CH2_DEFAULT;
 int ch3 = CH3_DEFAULT; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
 
-bool right_motor_reverse = false;
-bool left_motor_reverse = true;
-bool weapon_reverse = false;
+//bool right_motor_reverse = false;
+//bool left_motor_reverse = true;
+//bool weapon_reverse = false;
 
 const int SAFE_VARIANCE = 25; //in order to switch from kill switch mode 0 to 1 or 2, channels must be this close to the default range
 
-float z_offset = 2.5;  // Offset to calibrate Z axis. 2.5 is what's typically adjusted
-float z_accel = 0.0;
+//float z_offset = 2.5;  // Offset to calibrate Z axis. 2.5 is what's typically adjusted
+//float z_accel = 0.0;
 
 volatile bool flipped = false;
 const double FLIPPED_Z_THRESHOLD = 5.0; //when the z acceleration goes above this threshold, bot is considered flipped or unflipped
 
-ChipType chip = chip_MPU6050;
+
 AccelHandler* accelHandler;
 
 
@@ -100,9 +106,9 @@ uint32_t usToDuty(uint16_t pulse_us) {
 void setPWM(uint8_t channel, uint16_t pulse_us) {
   ledc_channel_t ch;
   switch (channel) {
-    case 0: ch = CH1_PWM; break;
-    case 1: ch = CH2_PWM; break;
-    case 2: ch = CH3_PWM; break;
+    case 1: ch = CH1_PWM; break;
+    case 2: ch = CH2_PWM; break;
+    case 3: ch = CH3_PWM; break;
     default: return; // invalid channel
   }
 
@@ -159,9 +165,9 @@ void setup_ESCs(){
   };
   ledc_channel_config(&ch3_conf);
 
-  setPWM(0, CH1_DEFAULT);
-  setPWM(1, CH2_DEFAULT);
-  setPWM(2, CH3_DEFAULT);
+  setPWM(1, CH1_DEFAULT);
+  setPWM(2, CH2_DEFAULT);
+  setPWM(3, CH3_DEFAULT);
 
   Serial.println("PWM channels started successfully");
 }
@@ -240,7 +246,12 @@ bool is_safe_killswitch_change(int v1, int v2, int v3, int mode){
 void mix_and_write(){
   int forward = ch2 - 1500;
   int turn = ch1 - 1500;
-  int weapon = ch3 - 1500;
+  int weapon;
+  if(BIDIRECTIONAL_WEAPON){
+    weapon = ch3 - 1500;
+  } else {
+    weapon = ch3 - 1000;
+  }
 
   if(flipped){ //reverses drive and weapon. Note: turning is always correct and does not need to be flipped
     forward = -forward;
@@ -250,14 +261,19 @@ void mix_and_write(){
   // Mixed motor signals
   int left_motor = 1500 + forward + turn;
   int right_motor = 1500 + forward - turn;
-  int weapon_motor = 1500 + weapon;
+  int weapon_motor;
+  if(BIDIRECTIONAL_WEAPON){
+    weapon_motor = 1500 + weapon;
+  } else {
+    weapon_motor = 1000 + weapon;
+  }
 
   // Clamp to PWM range
   left_motor = constrain(left_motor, 1000, 2000);
   right_motor = constrain(right_motor, 1000, 2000);
   weapon_motor = constrain(weapon_motor, 1000, 2000);
 
-
+  /*
   if(right_motor_reverse){
     right_motor = 2000 - (right_motor-1000);
   }
@@ -265,12 +281,13 @@ void mix_and_write(){
   if(left_motor_reverse){
     left_motor = 2000 - (left_motor-1000);
   }
+  */
 
   Serial.printf("Motor output: [%d, %d]\n", right_motor, left_motor);
 
-  setPWM(0, right_motor);
-  setPWM(1, left_motor);
-  setPWM(2, weapon_motor);
+  setPWM(1, right_motor);
+  setPWM(2, left_motor);
+  setPWM(3, weapon_motor);
   
 }
 

@@ -8,8 +8,8 @@ import time
 import platform
 
 # UDP Setup 
-ESP32_IP = "192.168.0.12"
-PORT = 4210
+ESP32_IP = "192.168.4.1"
+PORT = 4200
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
 
@@ -33,7 +33,7 @@ if platform.system() == "Linux":
 else:
     # Assume Windows (or fallback)
     AXIS_RIGHT_X = 2 #correct
-    AXIS_RIGHT_Y = 1 
+    AXIS_RIGHT_Y = 3 
     AXIS_LEFT_TRIGGER = 4
     AXIS_RIGHT_TRIGGER = 5
 

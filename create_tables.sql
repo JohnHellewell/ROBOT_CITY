@@ -8,33 +8,28 @@ CREATE DATABASE ROBOT_CITY;
 
 USE ROBOT_CITY;
 
+CREATE TABLE robot_type (
+    bot_type ENUM('DRUM', 'HORIZONTAL', 'VERTICAL', 'FLIPPER') PRIMARY KEY,
+    steering_limit FLOAT DEFAULT 1.0,
+    forward_limit FLOAT DEFAULT 1.0,
+    weapon_limit FLOAT DEFAULT 0.4,
+    bidirectional_weapon BOOLEAN DEFAULT 0,
+    CHECK (steering_limit >= 0.0 AND steering_limit <= 1.0),
+    CHECK (forward_limit >= 0.0 AND forward_limit <= 1.0),
+    CHECK (weapon_limit >= 0.0 AND weapon_limit <= 1.0)
+);
+
 CREATE TABLE robot (
     robot_id int PRIMARY KEY,
     local_ip VARCHAR(13) NOT NULL,
     network_port SMALLINT NOT NULL,
-    robot_type VARCHAR(20),
-    color VARCHAR(20),
+    robot_type VARCHAR(20) NOT NULL,
+    color ENUM('YELLOW', 'BLUE', 'GREEN', 'ORANGE') NOT NULL,
     CH1_INVERT BOOLEAN DEFAULT 0,
     CH2_INVERT BOOLEAN DEFAULT 0,
-    CH3_INVERT BOOLEAN DEFAULT 0
+    CH3_INVERT BOOLEAN DEFAULT 0,
+    INVERT_DRIVE BOOLEAN DEFAULT 0,
+    FOREIGN KEY (robot_type) REFERENCES robot_type(bot_type)
 );
 
-CREATE TABLE controller (
-    controller_id VARCHAR(40) PRIMARY KEY,
-    x_axis float,
-    y_axis float
-);
 
-CREATE TABLE battle_history (
-    battle_id INT PRIMARY KEY AUTO_INCREMENT,
-    date_time datetime,
-    player1_bot INT,
-    player2_bot INT,
-    player3_bot INT,
-    player4_bot INT,
-    winner INT,
-    FOREIGN KEY (player1_bot) REFERENCES robot (robot_id),
-    FOREIGN KEY (player2_bot) REFERENCES robot (robot_id),
-    FOREIGN KEY (player3_bot) REFERENCES robot (robot_id),
-    FOREIGN KEY (player4_bot) REFERENCES robot (robot_id)
-);
