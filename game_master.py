@@ -56,9 +56,11 @@ def scale_axis_drive(value, flip, limit):
         print("Axis value out of range:", value)
         value = 0.0
     if flip:
-        return 2000 - int((value + 1) * 500 * limit)
+        #return 2000 - int((value + 1) * 500 * limit)
+        return int((-value) * 500 * limit) + 1500
     else:
-        return int((value + 1) * 500 * limit) + 1000
+        #return int((value + 1) * 500 * limit) + 1000
+        return int(value * 500 * limit) + 1500
 
 def scale_axis_spinner(value, ch3_invert, weapon_scale, bidirectional):
     # Normalize trigger axis from [-1..1] to [0..1]
