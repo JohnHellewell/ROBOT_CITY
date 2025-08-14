@@ -238,23 +238,28 @@ def add_robot():
         ch1_inv = input("Invert CH1? (y/n): ").strip().lower() == 'y'
         ch2_inv = input("Invert CH2? (y/n): ").strip().lower() == 'y'
         ch3_inv = input("Invert CH3? (y/n): ").strip().lower() == 'y'
+        invert_drive = input("Invert drive? (y/n): ").strip().lower() == 'y'
+        robot_type = input("Enter robot type: ").strip()
+        color = input("Enter color: ").strip()
 
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO robot (robot_id, local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (robot_id, local_ip, port, ch1_inv, ch2_inv, ch3_inv))
+            INSERT INTO robot (robot_id, local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT, INVERT_DRIVE, robot_type, color)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (robot_id, local_ip, port, ch1_inv, ch2_inv, ch3_inv, invert_drive, robot_type, color))
         conn.commit()
         cursor.close()
         conn.close()
         print(f"Robot '{robot_id}' added successfully.")
+
     except mysql.connector.IntegrityError:
         print("Error: Robot ID already exists.")
     except ValueError:
         print("Invalid number input.")
     except Exception as e:
         print("Error adding robot:", e)
+
 
 def remove_robot():
     robot_id = input("Enter robot ID to remove: ").strip()
@@ -288,6 +293,9 @@ def edit_robot():
         print("Leave blank to keep current value.")
         new_ip = input(f"Current IP is {robot['local_ip']}. New IP: ").strip()
         new_port_input = input(f"Current port is {robot['network_port']}. New port: ").strip()
+        new_robot_type = input(f"Current bot type is {robot['robot_type']}. New bot type: ").strip()
+        new_color = input(f"Current color is {robot['color']}. New color: ").strip()
+        new_invert_drive = input(f"Current invert_drive is {bool(robot['invert_drive'])}. Only change this if robot turns when supposed to go forward. (y/n): ").strip().lower()
         new_ch1_inv = input(f"Current CH1 invert is {bool(robot['CH1_INVERT'])} (y/n): ").strip().lower()
         new_ch2_inv = input(f"Current CH2 invert is {bool(robot['CH2_INVERT'])} (y/n): ").strip().lower()
         new_ch3_inv = input(f"Current CH3 invert is {bool(robot['CH3_INVERT'])} (y/n): ").strip().lower()
@@ -295,14 +303,25 @@ def edit_robot():
         # If user left blank, keep old values
         ip = new_ip if new_ip else robot['local_ip']
         port = int(new_port_input) if new_port_input else robot['network_port']
+        robot_type = new_robot_type if new_robot_type else robot['robot_type']
+        color = new_color if new_color else robot['color']
+        invert_drive = robot['invert_drive'] if new_invert_drive == '' else (new_invert_drive == 'y')
         ch1_inv = robot['CH1_INVERT'] if new_ch1_inv == '' else (new_ch1_inv == 'y')
         ch2_inv = robot['CH2_INVERT'] if new_ch2_inv == '' else (new_ch2_inv == 'y')
         ch3_inv = robot['CH3_INVERT'] if new_ch3_inv == '' else (new_ch3_inv == 'y')
 
         cursor.execute("""
-            UPDATE robot SET local_ip = %s, network_port = %s, CH1_INVERT = %s, CH2_INVERT = %s, CH3_INVERT = %s
+            UPDATE robot
+            SET local_ip = %s,
+                network_port = %s,
+                robot_type = %s,
+                color = %s,
+                INVERT_DRIVE = %s,
+                CH1_INVERT = %s,
+                CH2_INVERT = %s,
+                CH3_INVERT = %s
             WHERE robot_id = %s
-        """, (ip, port, ch1_inv, ch2_inv, ch3_inv, robot_id))
+        """, (ip, port, robot_type, color, invert_drive, ch1_inv, ch2_inv, ch3_inv, robot_id))
 
         conn.commit()
         print(f"Robot '{robot_id}' updated successfully.")
@@ -312,11 +331,21 @@ def edit_robot():
     except Exception as e:
         print("Error editing robot:", e)
 
+
 def show_robots():
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT robot_id, local_ip, network_port, CH1_INVERT, CH2_INVERT, CH3_INVERT FROM robot")
+
+        cursor.execute("""
+            SELECT 
+                robot_id, local_ip, network_port, robot_type, color,
+                CH1_INVERT, CH2_INVERT, CH3_INVERT, INVERT_DRIVE,
+                steering_limit, forward_limit, weapon_limit, bidirectional_weapon
+            FROM robot
+            JOIN robot_type ON robot.robot_type = robot_type.bot_type
+        """)
+
         robots = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -325,13 +354,38 @@ def show_robots():
             print("No robots found in database.")
             return
 
-        print(f"{'Robot ID':<15} {'IP Address':<15} {'Port':<6} CH1_INV CH2_INV CH3_INV")
-        print("-" * 60)
-        for r in robots:
-            print(f"{r['robot_id']:<15} {r['local_ip']:<15} {r['network_port']:<6}  {bool(r['CH1_INVERT']):<7} {bool(r['CH2_INVERT']):<7} {bool(r['CH3_INVERT']):<7}")
+        # Convert all values to strings for width calculation
+        columns = list(robots[0].keys())
+        str_rows = []
+        for row in robots:
+            str_row = {}
+            for col, val in row.items():
+                if isinstance(val, (int, float)):
+                    str_row[col] = str(val)
+                elif isinstance(val, (bytes, bytearray)):
+                    str_row[col] = val.decode()
+                else:
+                    str_row[col] = str(bool(val)) if col.startswith("CH") or "INVERT" in col or "bidirectional" in col else str(val)
+            str_rows.append(str_row)
+
+        # Calculate max width for each column
+        col_widths = {}
+        for col in columns:
+            max_data_len = max(len(str(row[col])) for row in str_rows)
+            col_widths[col] = max(max_data_len, len(col)) + 2  # +2 for padding
+
+        # Print header
+        header = "".join(col.ljust(col_widths[col]) for col in columns)
+        print(header)
+        print("-" * len(header))
+
+        # Print rows
+        for row in str_rows:
+            print("".join(row[col].ljust(col_widths[col]) for col in columns))
 
     except Exception as e:
         print("Error showing robots:", e)
+
 
 
 if __name__ == "__main__":
