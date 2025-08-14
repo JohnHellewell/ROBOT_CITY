@@ -354,37 +354,48 @@ def show_robots():
             print("No robots found in database.")
             return
 
-        # Convert all values to strings for width calculation
-        columns = list(robots[0].keys())
-        str_rows = []
-        for row in robots:
-            str_row = {}
-            for col, val in row.items():
-                if isinstance(val, (int, float)):
-                    str_row[col] = str(val)
-                elif isinstance(val, (bytes, bytearray)):
-                    str_row[col] = val.decode()
-                else:
-                    str_row[col] = str(bool(val)) if col.startswith("CH") or "INVERT" in col or "bidirectional" in col else str(val)
-            str_rows.append(str_row)
+        # Set maximum column widths
+        max_widths = {
+            'robot_id': 6,
+            'local_ip': 15,  # enough for "192.168.X.XXX"
+            'network_port': 5,
+            'robot_type': 12,
+            'color': 8,
+            'CH1_INVERT': 5,
+            'CH2_INVERT': 5,
+            'CH3_INVERT': 5,
+            'INVERT_DRIVE': 5,
+            'steering_limit': 6,
+            'forward_limit': 6,
+            'weapon_limit': 6,
+            'bidirectional_weapon': 5
+        }
 
-        # Calculate max width for each column
-        col_widths = {}
-        for col in columns:
-            max_data_len = max(len(str(row[col])) for row in str_rows)
-            col_widths[col] = max(max_data_len, len(col)) + 2  # +2 for padding
-
-        # Print header
-        header = "".join(col.ljust(col_widths[col]) for col in columns)
+        # Header
+        header = ""
+        for col in max_widths:
+            header += col.ljust(max_widths[col]+2)
         print(header)
         print("-" * len(header))
 
-        # Print rows
-        for row in str_rows:
-            print("".join(row[col].ljust(col_widths[col]) for col in columns))
+        # Rows
+        for r in robots:
+            row_str = ""
+            for col, width in max_widths.items():
+                val = r[col]
+                # convert booleans to True/False
+                if isinstance(val, bool) or col in ['CH1_INVERT','CH2_INVERT','CH3_INVERT','INVERT_DRIVE','bidirectional_weapon']:
+                    val = str(bool(val))
+                val = str(val)
+                # truncate if too long
+                if len(val) > width:
+                    val = val[:width-3] + "..."
+                row_str += val.ljust(width+2)
+            print(row_str)
 
     except Exception as e:
         print("Error showing robots:", e)
+
 
 
 
