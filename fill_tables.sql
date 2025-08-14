@@ -1,8 +1,8 @@
 USE ROBOT_CITY;
 
 INSERT INTO robot_type (bot_type, steering_limit, forward_limit, weapon_limit, bidirectional_weapon)
-VALUES  ('DRUM', 0.6, 1.0, 0.4, 1),
-        ('HORIZONTAL', 0.6, 1.0, 0.3, 0),
+VALUES  ('DRUM', 0.6, 0.9, 0.4, 1),
+        ('HORIZONTAL', 0.6, 0.9, 0.3, 0),
         ('VERTICAL', 0.3, 0.4, 0.4, 1),
         ('LIFTER', 1.0, 1.0, 1.0, 0);
 
