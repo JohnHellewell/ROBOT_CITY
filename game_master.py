@@ -307,7 +307,7 @@ def edit_robot():
         port = int(new_port_input) if new_port_input else robot['network_port']
         robot_type = new_robot_type if new_robot_type else robot['robot_type']
         color = new_color if new_color else robot['color']
-        invert_drive = robot['invert_drive'] if new_invert_drive == '' else (new_invert_drive == 'y')
+        invert_drive = robot['INVERT_DRIVE'] if new_invert_drive == '' else (new_invert_drive == 'y')
         ch1_inv = robot['CH1_INVERT'] if new_ch1_inv == '' else (new_ch1_inv == 'y')
         ch2_inv = robot['CH2_INVERT'] if new_ch2_inv == '' else (new_ch2_inv == 'y')
         ch3_inv = robot['CH3_INVERT'] if new_ch3_inv == '' else (new_ch3_inv == 'y')
