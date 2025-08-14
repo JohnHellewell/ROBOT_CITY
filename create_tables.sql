@@ -9,7 +9,7 @@ CREATE DATABASE ROBOT_CITY;
 USE ROBOT_CITY;
 
 CREATE TABLE robot_type (
-    bot_type ENUM('DRUM', 'HORIZONTAL', 'VERTICAL', 'FLIPPER') PRIMARY KEY,
+    bot_type VARCHAR(20) PRIMARY KEY,
     steering_limit FLOAT DEFAULT 1.0,
     forward_limit FLOAT DEFAULT 1.0,
     weapon_limit FLOAT DEFAULT 0.4,
