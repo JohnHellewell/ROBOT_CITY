@@ -3,16 +3,26 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 #include "driver/ledc.h"
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
 
-#define SOFTWARE_VERSION "1.3.1"
+#define SOFTWARE_VERSION "1.4.0" //latest change: verts can flip at just 90 degrees. Serial Plot is used to monitor accel data
+
+enum RobotType {
+  DRUM,
+  HORIZ,
+  VERT,
+  LIFTER
+};
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int localPort = 4220;  // Each robot should have its own port
-const bool BIDIRECTIONAL_WEAPON = false; //must reflect the ESC settings
+const unsigned int localPort = 4230;  // Each robot should have its own port
+const bool BIDIRECTIONAL_WEAPON = true; //must reflect the ESC settings
 ChipType chip = chip_MPU6050; //standard for first batch of boards
+const RobotType robotType = VERT;
+const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
 
 #define SCL 6 
@@ -76,9 +86,13 @@ AccelHandler* accelHandler;
 
 void setup(void) {
   Serial.begin(115200);
+  if(PLOT_MODE)
+    Serial.println("X Y Z");
 
-  Serial.print("Running software version ");
-  Serial.println(SOFTWARE_VERSION);
+  if(!PLOT_MODE){
+    Serial.print("Running software version ");
+    Serial.println(SOFTWARE_VERSION);
+  }
   
   lastPacketReceived = millis();
 
@@ -169,44 +183,122 @@ void setup_ESCs(){
   setPWM(2, CH2_DEFAULT);
   setPWM(3, CH3_DEFAULT);
 
-  Serial.println("PWM channels started successfully");
+  if(!PLOT_MODE)
+    Serial.println("PWM channels started successfully");
 }
 
 void setup_accelerometer(){
-  accelHandler = new AccelHandler(chip, SDA, SCL);
+  accelHandler = new AccelHandler(chip, SDA, SCL, !PLOT_MODE);
 }
 
-void AccelerometerTask(void *pvParameters) { //task that constantly checks if bot is flipped over
-  float readings[5] = {};
-  int index = 0;
-  float z;
 
-  Values v = accelHandler->read();
-  z = v.z;
+int classifyXZ(float x, float y, float z) {
+
+  if(fabs(y) > FLIPPED_Z_THRESHOLD || fabs(x) + fabs(z) < FLIPPED_Z_THRESHOLD){ //don't flip when bot is on its side, or the readings are too weak
+    return 0;
+  }
+  // Calculate angle in radians between vector (x, z) and Z-axis
+  float angle = atan2(x, z);  // angle relative to Z axis
   
+  // Convert to degrees
+  float angleDeg = angle * 180.0 / PI;
+  
+  // Normalize to range -180, 180
+  if (angleDeg < -180) angleDeg += 360;
+  if (angleDeg > 180) angleDeg -= 360;
+
+  // Check if within ±30° of 180° (Z-axis down)
+  if (fabs(angleDeg - 180) <= 15) {
+    return 1;  // Z is flat
+  }
+
+  // Check if within ±30° of 90° (X-axis down)
+  //if (fabs(angleDeg - 90) <= 30 || fabs(angleDeg + 90) <= 30) {
+    if (fabs(angleDeg - 90) <= 15) {
+    return -1; // X is flat
+  }
+
+  // Otherwise, not in range
+  return 0;
+}
+
+void print_accel_values(double x, double y, double z){
+  Serial.print(x);
+  Serial.print(" ");
+  Serial.print(y);
+  Serial.print(" ");
+  Serial.println(z);
+}
+
+void AccelerometerTask(void *pvParameters) { // task that constantly checks if bot is flipped over
+  float readings[5][3] = {0};  // store last 5 readings (x,y,z)
+  int index = 0;
+
+  float x, y, z;
+
   while (true) {
     Values v = accelHandler->read();
+    x = v.x;
+    y = v.y;
     z = v.z;
-    readings[index] = z;
+
+    // store into circular buffer
+    readings[index][0] = x;
+    readings[index][1] = y;
+    readings[index][2] = z;
 
     index++;
-    index %= 5;
+    if (index >= 5) index = 0;  // wrap around
 
-    float sum = 0.0;
-    for(int i=0; i<5; i++){
-      sum += readings[i];
+    // compute average
+    float sum[3] = {0.0, 0.0, 0.0};
+    for (int i = 0; i < 5; i++) {
+      sum[0] += readings[i][0];
+      sum[1] += readings[i][1];
+      sum[2] += readings[i][2];
     }
-    float avg = sum/5.0;
 
-    if(flipped){//if bot is currently marked as upside down
-      if(avg < -FLIPPED_Z_THRESHOLD){
-        flipped = false;
-        Serial.println("FLIPPED! Right side up");
+    float avg[3];
+    avg[0] = sum[0] / 5.0; //x
+    avg[1] = sum[1] / 5.0; //y
+    avg[2] = sum[2] / 5.0; //z
+
+    if(PLOT_MODE)
+      print_accel_values(avg[0], avg[1], avg[2]);
+
+    if(robotType == VERT){ //flip is calculated based on y and z axis
+      switch(classifyXZ(avg[0], avg[1], avg[2])){ //use y and z
+        case 1: { //right side up
+          if(flipped){
+            flipped = false;
+            if(!PLOT_MODE)
+              Serial.println("FLIPPED! Right side up");
+          }
+          break;
+        }
+        case -1: { //upside down
+          if(!flipped){
+            flipped = true;
+            if(!PLOT_MODE)
+              Serial.println("FLIPPED! Upside down");
+          }
+          break;
+        }
+        default: break;
       }
-    } else {//if bot is currently marked as right side up
-      if(avg > FLIPPED_Z_THRESHOLD){
-        flipped = true;
-        Serial.println("FLIPPED! Upside down");
+    } else { //flip is calculated based on Z axis alone
+      if(flipped){//if bot is currently marked as upside down
+        if(avg[2] < -FLIPPED_Z_THRESHOLD){
+          flipped = false;
+          if(!PLOT_MODE)
+            Serial.println("FLIPPED! Right side up");
+        }
+      } else {//if bot is currently marked as right side up
+        if(avg[2] > FLIPPED_Z_THRESHOLD){
+          flipped = true;
+          if(!PLOT_MODE)
+            Serial.println("FLIPPED! Upside down");
+        }
       }
     }
 
@@ -223,12 +315,16 @@ int validate_range(int n, bool is_servo){
   if(n >= range[0] && n<= range[1]){
     return n;
   } else if(n < range[0]){
-    Serial.print("INVALID CHANNEL SIGNAL RECEIVED! received: ");
-    Serial.println(n);
+    if(!PLOT_MODE){
+      Serial.print("INVALID CHANNEL SIGNAL RECEIVED! received: ");
+      Serial.println(n);
+    }
     return range[0];
   } else {
-    Serial.print("INVALID CHANNEL SIGNAL RECEIVED! received: ");
-    Serial.println(n);
+    if(!PLOT_MODE){
+      Serial.print("INVALID CHANNEL SIGNAL RECEIVED! received: ");
+      Serial.println(n);
+    }
     return range[1];
   }
 }
@@ -237,8 +333,10 @@ bool is_safe_killswitch_change(int v1, int v2, int v3, int mode){
   if(mode==1 || mode==2){
     return abs(v1-CH1_DEFAULT)<=SAFE_VARIANCE && abs(v2-CH2_DEFAULT)<=SAFE_VARIANCE && (mode==1 || abs(v3-CH3_DEFAULT)<=SAFE_VARIANCE);
   } else {
-    Serial.print("logic error: is_safe_killswitch_change was given this value as killswitch: ");
-    Serial.println(mode);
+    if(!PLOT_MODE){
+      Serial.print("logic error: is_safe_killswitch_change was given this value as killswitch: ");
+      Serial.println(mode);
+    }
     return false;
   }
 }
@@ -285,8 +383,8 @@ void mix_and_write(){
     left_motor = 2000 - (left_motor-1000);
   }
   */
-
-  Serial.printf("Motor output: [%d, %d]\n", right_motor, left_motor);
+  if(!PLOT_MODE)
+    Serial.printf("Motor output: [%d, %d]\n", right_motor, left_motor);
 
   setPWM(1, right_motor);
   setPWM(2, left_motor);
@@ -300,8 +398,10 @@ void execute_package(int v1, int v2, int v3, int v4){
       ch2 = CH2_DEFAULT;
       ch3 = CH3_DEFAULT;
       killswitch = 0;
-      Serial.print("INVALID KILLSWITCH SIGNAL RECEIVED! received: ");
-      Serial.println(v4);
+      if(!PLOT_MODE){
+        Serial.print("INVALID KILLSWITCH SIGNAL RECEIVED! received: ");
+        Serial.println(v4);
+      }
       return;
   }
   v1 = validate_range(v1, false);
@@ -320,7 +420,8 @@ void execute_package(int v1, int v2, int v3, int v4){
       if(killswitch == 0){
         //make sure robot is safe to start moving. 
         if(!is_safe_killswitch_change(v1, v2, v3, v4)){
-          Serial.println("Robot will not move until drive joystick is at rest");
+          if(!PLOT_MODE)
+            Serial.println("Robot will not move until drive joystick is at rest");
           return;
         }
         
@@ -335,7 +436,8 @@ void execute_package(int v1, int v2, int v3, int v4){
       if(killswitch == 0 || killswitch == 1){
         //make sure robot is safe to start moving. 
         if(!is_safe_killswitch_change(v1, v2, v3, v4)){
-          Serial.println("Robot will not move until drive and weapon are at rest");
+          if(!PLOT_MODE)
+            Serial.println("Robot will not move until drive and weapon are at rest");
           return;
         }
         killswitch = 2;
@@ -359,7 +461,8 @@ void UDP_packet() {
 
     if (!connected) {
       connected = true;
-      Serial.println("Connection established; receiving packets");
+      if(!PLOT_MODE)
+        Serial.println("Connection established; receiving packets");
     }
 
     uint16_t* values = (uint16_t*)incomingPacket;
@@ -379,7 +482,8 @@ void UDP_packet() {
     connected = false;
     execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
     mix_and_write();
-    Serial.println("Connection dropped! Failsafe enabled");
+    if(!PLOT_MODE)
+      Serial.println("Connection dropped! Failsafe enabled");
   }
 }
 
@@ -391,26 +495,33 @@ void setup_OTA(){
       type = "sketch";
     else // U_SPIFFS
       type = "filesystem";
-    Serial.println("Start updating " + type);
+    
+    if(!PLOT_MODE)
+      Serial.println("Start updating " + type);
   })
   .onEnd([]() {
-    Serial.println("\nEnd");
+    if(!PLOT_MODE)
+      Serial.println("\nEnd");
   })
   .onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    if(!PLOT_MODE)
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   })
   .onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    if(!PLOT_MODE){
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    }
   });
 
   ArduinoOTA.setPassword(OTA_PASSWORD); // No password. Put a string in here to add a password
   ArduinoOTA.begin();
-  Serial.println("OTA Ready");
+  if(!PLOT_MODE)
+    Serial.println("OTA Ready");
 }
 
 //connects to Wi-Fi and begins UDP
@@ -420,23 +531,29 @@ void connectToWiFi() {
   // Set lower WiFi transmit power (e.g., 10 dBm)
   WiFi.setTxPower(WIFI_POWER_20dBm); //lower the transmitter power by 95%. If robots have connection issues, try raising this
 
-  Serial.print("Connecting to WiFi Network ");
-  Serial.print(WIFI_SSID);
+  if(!PLOT_MODE){
+    Serial.print("Connecting to WiFi Network ");
+    Serial.print(WIFI_SSID);
+  }
   while (WiFi.status() != WL_CONNECTED) {
     delay(250);
-    Serial.print(".");
+    if(!PLOT_MODE)
+      Serial.print(".");
     pinMode(ONBOARD_LED, OUTPUT);
     digitalWrite(ONBOARD_LED, HIGH);
     delay(250);
     pinMode(ONBOARD_LED, OUTPUT);
     digitalWrite(ONBOARD_LED, LOW);
   }
-  Serial.println("\nWiFi connected!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  if(!PLOT_MODE){
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  }
 
   udp.begin(localPort);
-  Serial.println("UDP listening on port " + String(localPort));
+  if(!PLOT_MODE)
+    Serial.println("UDP listening on port " + String(localPort));
 }
 
 /*

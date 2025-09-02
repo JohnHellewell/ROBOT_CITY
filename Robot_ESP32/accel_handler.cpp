@@ -2,7 +2,7 @@
 
 
 
-AccelHandler::AccelHandler(ChipType chip, int SDA, int SCL) {
+AccelHandler::AccelHandler(ChipType chip, int SDA, int SCL, bool doPrint) {
   chipType = chip;
   Wire.begin(SDA, SCL);
 
@@ -10,19 +10,23 @@ AccelHandler::AccelHandler(ChipType chip, int SDA, int SCL) {
     case chip_MC3419: 
       // Start the sensor with I2C mode (bSpi = true), and I2C address = 0x4C (common for MC3419)
       if (!mc3419.start(true, 0x4C)) {
-        Serial.println("Failed to initialize MC34X9 chip!");
+        if(doPrint)
+          Serial.println("Failed to initialize MC3419 chip!");
         while (1);
       }
-      Serial.println("MC34X9 initialized.");
+      if(doPrint)
+        Serial.println("MC3419 initialized.");
       break;
 
     case chip_MPU6050:
       mpu6050.initialize();
       if (!mpu6050.testConnection()) {
-        Serial.println("Failed to initialize MPU6050 chip!");
+        if(doPrint)
+          Serial.println("Failed to initialize MPU6050 chip!");
         while (1);
       } else {
-        Serial.println("MPU6050 initialized.");
+        if(doPrint)
+          Serial.println("MPU6050 initialized.");
 
         // Set accelerometer range to ±4g
         mpu6050.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
@@ -36,7 +40,8 @@ AccelHandler::AccelHandler(ChipType chip, int SDA, int SCL) {
       break;
 
     default:
-      Serial.println("wrong accelerometer selected!");
+      if(doPrint)
+        Serial.println("wrong accelerometer selected!");
       while(1);
   }
 }

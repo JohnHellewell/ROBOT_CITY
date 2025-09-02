@@ -27,7 +27,7 @@ class AccelHandler {
   MC34X9 mc3419;
 
   public:
-  AccelHandler(ChipType chip, int SDA, int SCL);
+  AccelHandler(ChipType chip, int SDA, int SCL, bool doPrint);
 
   //bool start();
   virtual Values read();
