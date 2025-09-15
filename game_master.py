@@ -230,6 +230,8 @@ if __name__ == "__main__":
                 db_handler.show_robots()
             elif cmd == "show types":
                 db_handler.show_types()
+            elif cmd == "edit type":
+                db_handler.edit_type()
             elif cmd == "exit":
                 reset()
                 break
