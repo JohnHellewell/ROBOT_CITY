@@ -248,10 +248,22 @@ def show_types():
             print("No robots found in database.")
             return
 
-        headers = ["Type", "Steer", "Fwd", "Weapon", "Bi-Weap"]
+        # Shorten column names for display
+        headers = {
+            "bot_type": "Type",
+            "steering_limit": "Steer",
+            "forward_limit": "Fwd",
+            "weapon_limit": "Weapon",
+            "bidirectional_weapon": "Bi-Weap"
+        }
 
-        
-        print(tabulate(rows, headers=headers, tablefmt="fancy_grid"))
+        # Convert rows to list of tuples in order of headers
+        table = []
+        for row in rows:
+            table.append([row[k] for k in headers.keys()])
+
+        # Display table
+        print(tabulate(table, headers=headers.values(), tablefmt="fancy_grid"))
 
     except Exception as e:
         print("Error showing robot types:", e)
