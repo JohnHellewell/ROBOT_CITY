@@ -262,7 +262,7 @@ def edit_type():
         print("Leave blank to keep current value.")
         new_steer_limit = input(f"Current steering limit is {robot_type['steering_limit']}. New limit: ").strip()
         new_forw_limit = input(f"Current forward limit is {robot_type['forward_limit']}. New limit: ").strip()
-        new_weap_limit = input(f"Current weapon limit is {robot_type['weapon_limit']}. New bot type: ").strip()
+        new_weap_limit = input(f"Current weapon limit is {robot_type['weapon_limit']}. New limit: ").strip()
         new_bidir_weap = input(f"Current CH3 invert is {bool(robot_type['bidirectional_weapon'])}. Note: ESC settings must match this value. Set to true? (y/n): ").strip().lower()
 
         # If user left blank, keep old values
@@ -282,7 +282,7 @@ def edit_type():
                 forward_limit = %s,
                 weapon_limit = %s,
                 bidirectional_weapon = %s
-            WHERE robot_id = %s
+            WHERE bot_type = %s
         """, (steer_limit, forw_limit, weap_limit, bidir_weap, robot_id))
 
         conn.commit()
