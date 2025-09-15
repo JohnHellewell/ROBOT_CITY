@@ -152,6 +152,8 @@ def edit_robot():
         print("Error editing robot:", e)
 
 
+from tabulate import tabulate
+
 def show_robots():
     try:
         conn = get_connection()
@@ -191,47 +193,23 @@ def show_robots():
             'bidirectional_weapon': 'bi_dir_wpn'
         }
 
-        # Set maximum column widths
-        max_widths = {
-            'robot_id': 6,
-            'local_ip': 15,
-            'network_port': 5,
-            'robot_type': 12,
-            'color': 8,
-            'CH1_INVERT': 5,
-            'CH2_INVERT': 5,
-            'CH3_INVERT': 5,
-            'INVERT_DRIVE': 5,
-            'steering_limit': 6,
-            'forward_limit': 6,
-            'weapon_limit': 6,
-            'bidirectional_weapon': 5
-        }
-
-        # Print header
-        header = ""
-        for col in display_map:
-            header += display_map[col].ljust(max_widths[col]+2)
-        print(header)
-        print("-" * len(header))
-
-        # Print rows
+        # Convert rows to list of lists and handle booleans
+        table = []
         for r in robots:
-            row_str = ""
-            for col, width in max_widths.items():
+            row = []
+            for col in display_map.keys():
                 val = r[col]
-                # convert booleans to True/False
                 if isinstance(val, bool) or col in ['CH1_INVERT','CH2_INVERT','CH3_INVERT','INVERT_DRIVE','bidirectional_weapon']:
-                    val = str(bool(val))
-                val = str(val)
-                # truncate if too long
-                if len(val) > width:
-                    val = val[:width-3] + "..."
-                row_str += val.ljust(width+2)
-            print(row_str)
+                    val = "Yes" if val else "No"
+                row.append(val)
+            table.append(row)
+
+        # Print table with tabulate
+        print(tabulate(table, headers=display_map.values(), tablefmt="fancy_grid"))
 
     except Exception as e:
         print("Error showing robots:", e)
+
 
 def show_types():
     try:
