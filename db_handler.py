@@ -245,3 +245,50 @@ def show_types():
 
     except Exception as e:
         print("Error showing robot types:", e)
+
+def edit_type():
+    robot_id = input("Enter robot type to edit: (DRUM, HORIZONTAL, VERTICAL, LIFTER) ").strip()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM robot_type WHERE bot_type = %s", (robot_id,))
+        robot_type = cursor.fetchone()
+        if not robot_type:
+            print(f"No robot type found with ID '{robot_id}'.")
+            cursor.close()
+            conn.close()
+            return
+
+        print("Leave blank to keep current value.")
+        new_steer_limit = input(f"Current steering limit is {robot_type['steering_limit']}. New limit: ").strip()
+        new_forw_limit = input(f"Current forward limit is {robot_type['forward_limit']}. New limit: ").strip()
+        new_weap_limit = input(f"Current weapon limit is {robot_type['weapon_limit']}. New bot type: ").strip()
+        new_bidir_weap = input(f"Current CH3 invert is {bool(robot_type['bidirectional_weapon'])}. Note: ESC settings must match this value. Set to true? (y/n): ").strip().lower()
+
+        # If user left blank, keep old values
+        steer_limit = float(new_steer_limit) if new_steer_limit else robot_type['steering_limit']
+        forw_limit = float(new_forw_limit) if new_forw_limit else robot_type['forward_limit']
+        weap_limit = float(new_weap_limit) if new_weap_limit else robot_type['weapon_limit']
+        bidir_weap = robot_type['bidirectional_weapon'] if new_bidir_weap == '' else (new_bidir_weap == 'y')
+
+        #constrain all floats between 0.0 and 1.0
+        steer_limit = max(0.0, min(1.0, steer_limit))
+        forw_limit = max(0.0, min(1.0, forw_limit))
+        weap_limit = max(0.0, min(1.0, weap_limit))
+
+        cursor.execute("""
+            UPDATE robot_type
+            SET steering_limit = %s,
+                forward_limit = %s,
+                weapon_limit = %s,
+                bidirectional_weapon = %s
+            WHERE robot_id = %s
+        """, (steer_limit, forw_limit, weap_limit, bidir_weap, robot_id))
+
+        conn.commit()
+        print(f"Robot type'{robot_id}' updated successfully.")
+        cursor.close()
+        conn.close()
+    
+    except Exception as e:
+        print("Error editing robot type:", e)
