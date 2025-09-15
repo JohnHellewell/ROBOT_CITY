@@ -232,10 +232,10 @@ if __name__ == "__main__":
                 reset()
                 break
             elif cmd == "help":
-                println("Commands:")
-                println("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
-                println("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
-                #println("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
+                print("Commands:")
+                print("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
+                print("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
+                #print("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
             else:
                 print("Unknown command.")
     except KeyboardInterrupt:
