@@ -3,6 +3,7 @@ import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 import os
+from tabulate import tabulate
 
 # Load environment variables
 load_dotenv()
@@ -231,3 +232,26 @@ def show_robots():
 
     except Exception as e:
         print("Error showing robots:", e)
+
+def show_types():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT * FROM robot_type")
+
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not rows:
+            print("No robots found in database.")
+            return
+
+        headers = ["Type", "Steer", "Fwd", "Weapon", "Bi-Weap"]
+
+        
+        print(tabulate(rows, headers=headers, tablefmt="fancy_grid"))
+
+    except Exception as e:
+        print("Error showing robot types:", e)

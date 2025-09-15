@@ -228,6 +228,8 @@ if __name__ == "__main__":
                 db_handler.edit_robot()
             elif cmd == "show robots":
                 db_handler.show_robots()
+            elif cmd == "show types":
+                db_handler.show_types()
             elif cmd == "exit":
                 reset()
                 break
@@ -235,7 +237,7 @@ if __name__ == "__main__":
                 print("Commands:")
                 print("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
                 print("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
-                #print("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
+                print("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
             else:
                 print("Unknown command.")
     except KeyboardInterrupt:
