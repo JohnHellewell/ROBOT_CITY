@@ -24,8 +24,9 @@ class LightingController:
             data = self.data
         
         ch1 = data[:8]
-        for i in range(1, 4):
-            data[i*8] = ch1
+        for i in range(3):  # already have 1 copy, add 3 more
+            data.extend(ch1)
+
 
         def dmx_sent(status):
             pass  # Silent
