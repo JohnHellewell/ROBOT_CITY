@@ -42,7 +42,7 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
     
-    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.025):
+    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.075):
         #"""Rotate through 4 lights, one at a time."""
         self.stop_wait()
 
@@ -58,6 +58,14 @@ class LightingController:
 
                     # Offset for this light (8 channels each)
                     offset = light * 8
+                    self.data[offset + 0] = r
+                    self.data[offset + 1] = g
+                    self.data[offset + 2] = b
+                    self.data[offset + 3] = white
+                    self.data[offset + 6] = 255
+                    self.data[offset + 7] = 255
+
+                    offset = ((light + 1)%4) * 8
                     self.data[offset + 0] = r
                     self.data[offset + 1] = g
                     self.data[offset + 2] = b
