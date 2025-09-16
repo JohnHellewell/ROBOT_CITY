@@ -19,21 +19,22 @@ class LightingController:
         self.waiting = threading.Event()
         self.wait_thread = None
 
-    def send_dmx(self, data=None):
+    def send_dmx(self, data=None, replicate = True):
         if data is None:
             data = self.data
         
-        # take first 8
-        ch1 = data[:8]
+        if(replicate):
+            # take first 8
+            ch1 = data[:8]
 
-        # repeat 4 times
-        new_data = ch1 * 4   # length = 32
+            # repeat 4 times
+            new_data = ch1 * 4   # length = 32
 
-        # pad with zeros to length 512
-        new_data.extend([0] * (512 - len(new_data)))
+            # pad with zeros to length 512
+            new_data.extend([0] * (512 - len(new_data)))
 
-        # replace original
-        data = new_data
+            # replace original
+            data = new_data
 
 
         def dmx_sent(status):
@@ -64,7 +65,7 @@ class LightingController:
                     self.data[offset + 6] = 255
                     self.data[offset + 7] = 255
 
-                    self.send_dmx()
+                    self.send_dmx(replicate = False)
                     time.sleep(delay)
 
         self.wait_thread = threading.Thread(target=_run, daemon=True)
