@@ -22,6 +22,10 @@ class LightingController:
     def send_dmx(self, data=None):
         if data is None:
             data = self.data
+        
+        ch1 = data[:8]
+        for i in range(1, 4):
+            data[i*8] = ch1
 
         def dmx_sent(status):
             pass  # Silent

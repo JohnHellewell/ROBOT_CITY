@@ -18,10 +18,10 @@ enum RobotType {
 };
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int localPort = 4230;  // Each robot should have its own port
-const bool BIDIRECTIONAL_WEAPON = true; //must reflect the ESC settings
+const unsigned int localPort = 4223;  // Each robot should have its own port
+const bool BIDIRECTIONAL_WEAPON = false; //must reflect the ESC settings
 ChipType chip = chip_MPU6050; //standard for first batch of boards
-const RobotType robotType = VERT;
+const RobotType robotType = HORIZ;
 const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
 
@@ -208,7 +208,7 @@ int classifyXZ(float x, float y, float z) {
   if (angleDeg > 180) angleDeg -= 360;
 
   // Check if within ±30° of 180° (Z-axis down)
-  if (fabs(angleDeg - 180) <= 15) {
+  if (fabs(angleDeg) <= 15) {
     return 1;  // Z is flat
   }
 
