@@ -42,7 +42,7 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
     
-    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.25):
+    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.025):
         #"""Rotate through 4 lights, one at a time."""
         self.stop_wait()
 
@@ -112,7 +112,7 @@ class LightingController:
             self.wait_thread = None
 
     def battle_start(self):
-        self.chase_sequence(255, 0, 0, 0)
+        self.chase_sequence(255, 255, 255, 255)
         time.sleep(5)
         #self.stop_wait()
 
