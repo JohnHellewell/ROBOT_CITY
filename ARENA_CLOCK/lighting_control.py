@@ -43,16 +43,30 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
     
-    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.02, period=2.0):
+    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.02, period=0.45, duration=5.0):
     
-        
         self.stop_wait()
 
         def _run():
             self.waiting.set()
             start_time = time.time()
+            end_time = start_time + duration
+
             while self.waiting.is_set():
-                t = time.time() - start_time
+                now = time.time()
+                t = now - start_time
+                remaining = end_time - now
+
+                if remaining <= 0:
+                    break  # stop after duration
+
+                # Default intensity scale (0→1)
+                scale = 1.0
+                if t < 1.0:  # fade-in
+                    scale = t / 1.0
+                elif remaining < 1.0:  # fade-out
+                    scale = remaining / 1.0
+
                 self.data = [0] * 512
 
                 for light in range(4):
@@ -68,6 +82,8 @@ class LightingController:
                         # Map [0.5, 1] → [0, 1]
                         brightness = (sine_val - 0.5) * 2  
 
+                    brightness *= scale  # apply fade-in/out scale
+
                     # Scale colors
                     offset = light * 8
                     self.data[offset + 0] = int(r * brightness)
@@ -82,9 +98,12 @@ class LightingController:
                 self.send_dmx(replicate=False)
                 time.sleep(delay)
 
+            # Turn off lights when done
+            self.data = [0] * 512
+            self.send_dmx(replicate=False)
+
         self.wait_thread = threading.Thread(target=_run, daemon=True)
         self.wait_thread.start()
-
 
 
     def rgb(self, r, g, b, white = 0):
