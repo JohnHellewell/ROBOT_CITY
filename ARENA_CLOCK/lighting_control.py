@@ -61,6 +61,8 @@ class LightingController:
                     self.data[offset + 1] = g
                     self.data[offset + 2] = b
                     self.data[offset + 3] = white
+                    self.data[offset + 6] = 255
+                    self.data[offset + 7] = 255
 
                     self.send_dmx()
                     time.sleep(delay)
