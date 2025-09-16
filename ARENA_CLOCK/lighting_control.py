@@ -23,9 +23,17 @@ class LightingController:
         if data is None:
             data = self.data
         
+        # take first 8
         ch1 = data[:8]
-        for i in range(3):  # already have 1 copy, add 3 more
-            data.extend(ch1)
+
+        # repeat 4 times
+        new_data = ch1 * 4   # length = 32
+
+        # pad with zeros to length 512
+        new_data.extend([0] * (512 - len(new_data)))
+
+        # replace original
+        data = new_data
 
 
         def dmx_sent(status):
