@@ -1,6 +1,7 @@
 import threading
 import time
 from ola.ClientWrapper import ClientWrapper
+import math
 
 UNIVERSE = 1
 
@@ -42,42 +43,48 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
     
-    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.075):
-        #"""Rotate through 4 lights, one at a time."""
+    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.02, period=2.0):
+    
+        
         self.stop_wait()
 
         def _run():
             self.waiting.set()
+            start_time = time.time()
             while self.waiting.is_set():
-                for light in range(4):  # 4 lights
-                    if not self.waiting.is_set(): 
-                        return
+                t = time.time() - start_time
+                self.data = [0] * 512
 
-                    # Clear all
-                    self.data = [0] * 512
+                for light in range(4):
+                    # Phase offset (0, 90, 180, 270 degrees)
+                    phase = (2 * math.pi * t / period) + (light * math.pi / 2)
 
-                    # Offset for this light (8 channels each)
+                    # Raw sine in [-1, 1] -> normalize to [0, 1]
+                    sine_val = (math.sin(phase) + 1) / 2  
+
+                    if sine_val < 0.5:
+                        brightness = 0
+                    else:
+                        # Map [0.5, 1] → [0, 1]
+                        brightness = (sine_val - 0.5) * 2  
+
+                    # Scale colors
                     offset = light * 8
-                    self.data[offset + 0] = r
-                    self.data[offset + 1] = g
-                    self.data[offset + 2] = b
-                    self.data[offset + 3] = white
+                    self.data[offset + 0] = int(r * brightness)
+                    self.data[offset + 1] = int(g * brightness)
+                    self.data[offset + 2] = int(b * brightness)
+                    self.data[offset + 3] = int(white * brightness)
+
+                    # Strobes full on
                     self.data[offset + 6] = 255
                     self.data[offset + 7] = 255
 
-                    offset = ((light + 1)%4) * 8
-                    self.data[offset + 0] = r
-                    self.data[offset + 1] = g
-                    self.data[offset + 2] = b
-                    self.data[offset + 3] = white
-                    self.data[offset + 6] = 255
-                    self.data[offset + 7] = 255
-
-                    self.send_dmx(replicate = False)
-                    time.sleep(delay)
+                self.send_dmx(replicate=False)
+                time.sleep(delay)
 
         self.wait_thread = threading.Thread(target=_run, daemon=True)
         self.wait_thread.start()
+
 
 
     def rgb(self, r, g, b, white = 0):
