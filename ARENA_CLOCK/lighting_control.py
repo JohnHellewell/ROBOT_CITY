@@ -40,6 +40,34 @@ class LightingController:
             pass  # Silent
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
+    
+    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.25):
+        #"""Rotate through 4 lights, one at a time."""
+        self.stop_wait()
+
+        def _run():
+            self.waiting.set()
+            while self.waiting.is_set():
+                for light in range(4):  # 4 lights
+                    if not self.waiting.is_set(): 
+                        return
+
+                    # Clear all
+                    self.data = [0] * 512
+
+                    # Offset for this light (8 channels each)
+                    offset = light * 8
+                    self.data[offset + 0] = r
+                    self.data[offset + 1] = g
+                    self.data[offset + 2] = b
+                    self.data[offset + 3] = white
+
+                    self.send_dmx()
+                    time.sleep(delay)
+
+        self.wait_thread = threading.Thread(target=_run, daemon=True)
+        self.wait_thread.start()
+
 
     def rgb(self, r, g, b, white = 0):
         self.data[0] = r
@@ -81,6 +109,10 @@ class LightingController:
             self.wait_thread = None
 
     def battle_start(self):
+        self.chase_sequence(255, 0, 0, 0)
+        time.sleep(5)
+        #self.stop_wait()
+
         self.stop_wait()
         def _run():
             self.data = [0]*512
