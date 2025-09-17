@@ -27,7 +27,7 @@ class CameraFeedHandler:
         }
 
         self.color_bgr = {
-            "Orange": (0, 165, 255),
+            "Orange": (0, 92, 255),
             "Green":  (0, 255, 0),
             "Blue":   (255, 0, 0),
             "Yellow": (0, 255, 255),
