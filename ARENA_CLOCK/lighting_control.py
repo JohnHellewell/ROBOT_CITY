@@ -112,11 +112,11 @@ class LightingController:
 
     def _wait_loop(self):
         self.waiting.set()
+        for r in range(256):
+            if not self.waiting.is_set(): return
+            self.rgb(r, 0, 0)
+            time.sleep(0.01)
         while self.waiting.is_set():
-            for r in range(256):
-                if not self.waiting.is_set(): return
-                self.rgb(r, 0, 0)
-                time.sleep(0.01)
             for g in range(256):
                 if not self.waiting.is_set(): return
                 self.rgb(255 - g, g, 0)
