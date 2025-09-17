@@ -79,21 +79,18 @@ class LightingController:
                     if sine_val < 0.5:
                         brightness = 0
                     else:
-                        # Map [0.5, 1] → [0, 1]
                         brightness = (sine_val - 0.5) * 2  
-
-                    brightness *= scale  # apply fade-in/out scale
 
                     # Scale colors
                     offset = light * 8
-                    self.data[offset + 0] = int(r * brightness)
-                    self.data[offset + 1] = int(g * brightness)
-                    self.data[offset + 2] = int(b * brightness)
-                    self.data[offset + 3] = int(white * brightness)
+                    self.data[offset + 0] = r
+                    self.data[offset + 1] = g
+                    self.data[offset + 2] = b
+                    self.data[offset + 3] = white
 
                     # Strobes full on
                     self.data[offset + 6] = 255
-                    self.data[offset + 7] = 255
+                    self.data[offset + 7] = int(255 * scale * brightness)
 
                 self.send_dmx(replicate=False)
                 time.sleep(delay)
@@ -146,9 +143,8 @@ class LightingController:
             self.wait_thread = None
 
     def battle_start(self):
-        self.chase_sequence(255, 255, 255, 255)
-        time.sleep(5)
-        #self.stop_wait()
+        self.chase_sequence(255, 255, 255, 255, duration = 3)
+        time.sleep(5) #3s of chase sequence, then 2 seconds of pause (anticipation)
 
         self.stop_wait()
         def _run():
