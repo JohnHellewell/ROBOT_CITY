@@ -11,6 +11,7 @@ class LightingController:
         self.client = self.wrapper.Client()
         self.data = [0] * 512
 
+
         # Event loop thread
         self.thread = threading.Thread(target=self.wrapper.Run)
         self.thread.daemon = True
@@ -111,11 +112,33 @@ class LightingController:
         self.data[4] = amber
         self.data[5] = uv
         self.send_dmx()
+    
+    def fade_out(self, time = 1.0):
+        self.stop_wait() #kill anything running
+        delay = 0.01
+        wait = 0.0
+        
+        data = self.data[:8*4]
+
+        while wait < time:
+            for i in range(4):
+                self.data[i*8+7] = int(255 / (wait/time))
+            self.send_dmx(replicate = False)
+            time.sleep(delay)
+            wait += delay
+        
+        self.data = [0] * 512 #reset to all 0s except channels 6 & 7
+        for i in range(4):
+            self.data[i*8+6] = 255
+            self.data[i*8+7] = 255
+            
 
     def _wait_loop(self):
         delay = 0.02 #time waiting between updates
 
         self.waiting.set()
+
+        
         time.sleep(5) #just a bit of a wait before starting the effects
         for r in range(256):
             if not self.waiting.is_set(): return
@@ -154,7 +177,8 @@ class LightingController:
 
     def battle_start(self, chase = True):
         if(chase):
-            self.chase_sequence(255, 255, 255, 255, duration = 4)
+            self.fade_out()
+            self.chase_sequence(255, 255, 255, 255, duration = 3)
             time.sleep(5) #4s of chase sequence, then 1 second of pause (anticipation)
 
         self.stop_wait()
