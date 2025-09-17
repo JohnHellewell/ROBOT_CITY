@@ -1,3 +1,5 @@
+from camera_feed import CameraFeedHandler
+
 if __name__ == "__main__":
     handler = CameraFeedHandler(use_cuda=True)
     handler.start()
