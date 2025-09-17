@@ -20,11 +20,19 @@ class CameraFeedHandler:
 
         # HSV color ranges for bright TPU colors
         self.color_ranges = {
-            "Orange": ([5, 150, 150], [15, 255, 255]),
-            "Green":  ([40, 100, 100], [80, 255, 255]),
-            "Blue":   ([100, 150, 100], [130, 255, 255]),
-            "Yellow": ([20, 150, 150], [30, 255, 255]),
+            "Orange": ([0, 120, 120], [25, 255, 255]),   # wider hue & lower sat
+            "Green":  ([40,  80,  80], [85, 255, 255]),  # same
+            "Blue":   ([95, 120,  80], [135, 255, 255]), # same
+            "Yellow": ([20, 100, 120], [40, 255, 255]),  # more tolerance
         }
+
+        self.color_bgr = {
+            "Orange": (0, 165, 255),
+            "Green":  (0, 255, 0),
+            "Blue":   (255, 0, 0),
+            "Yellow": (0, 255, 255),
+        }
+
 
     def detect_colors(self, frame):
         """Detect bounding boxes for each color."""
@@ -60,21 +68,23 @@ class CameraFeedHandler:
             if not ret:
                 continue
 
+            # Resize to full HD (so Fire TV fills the screen)
+            frame = cv2.resize(frame, (1920, 1080))
+
             # Draw bounding boxes from last detection
             with self.lock:
                 boxes = list(self.last_boxes)
 
             for color, x, y, w, h in boxes:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
-                cv2.putText(frame, color, (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), self.color_bgr[color], 3)
 
             # Encode frame as JPEG
             ret, buffer = cv2.imencode('.jpg', frame)
             frame_bytes = buffer.tobytes()
 
             yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
 
     def start(self):
         self.running = True
