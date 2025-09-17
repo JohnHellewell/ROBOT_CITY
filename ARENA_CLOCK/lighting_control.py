@@ -103,32 +103,41 @@ class LightingController:
         self.wait_thread.start()
 
 
-    def rgb(self, r, g, b, white = 0):
+    def rgb(self, r, g, b, white = 0, amber = 0, uv = 0):
         self.data[0] = r
         self.data[1] = g
         self.data[2] = b
         self.data[3] = white
+        self.data[4] = amber
+        self.data[5] = uv
         self.send_dmx()
 
     def _wait_loop(self):
+        delay = 0.02 #time waiting between updates
+
         self.waiting.set()
         for r in range(256):
             if not self.waiting.is_set(): return
             self.rgb(r, 0, 0)
-            time.sleep(0.01)
+            time.sleep(delay)
         while self.waiting.is_set():
             for g in range(256):
                 if not self.waiting.is_set(): return
                 self.rgb(255 - g, g, 0)
-                time.sleep(0.01)
+                time.sleep(delay)
             for b in range(256):
                 if not self.waiting.is_set(): return
                 self.rgb(0, 255 - b, b)
-                time.sleep(0.01)
+                time.sleep(delay)
+            for u in range(256):
+                if not self.waiting.is_set(): return
+                self.rgb(0, 0, 255-u, uv = u//2) #uv intensity cut n half
+                time.sleep(delay)
             for r in range(256):
                 if not self.waiting.is_set(): return
-                self.rgb(r, 0, 255 - r)
-                time.sleep(0.01)
+                self.rgb(r, 0, 0, uv = (255-r)//2)
+                time.sleep(delay)
+            
 
     def wait(self):
         # Stop any existing loop
