@@ -69,7 +69,7 @@ class CameraFeedHandler:
                 continue
 
             # Resize to full HD (so Fire TV fills the screen)
-            frame = cv2.resize(frame, (1920, 1080))
+            #frame = cv2.resize(frame, (1920, 1080))
 
             # Draw bounding boxes from last detection
             with self.lock:
