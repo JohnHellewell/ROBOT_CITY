@@ -122,7 +122,7 @@ class LightingController:
 
         while wait < time:
             for i in range(4):
-                if wait is 0:
+                if wait == 0.0:
                     self.data[i*8+7] = 255
                 else:
                     self.data[i*8+7] = int(255 / (wait/time))
