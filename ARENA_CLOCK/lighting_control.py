@@ -62,10 +62,10 @@ class LightingController:
 
                 # Default intensity scale (0→1)
                 scale = 1.0
-                if t < 1.0:  # fade-in
-                    scale = t / 1.0
-                elif remaining < 1.0:  # fade-out
-                    scale = remaining / 1.0
+                if t < 0.5:  # fade-in
+                    scale = t / 0.5
+                elif remaining < 0.5:  # fade-out
+                    scale = remaining / 0.5
 
                 self.data = [0] * 512
 
