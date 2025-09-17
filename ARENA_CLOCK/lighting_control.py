@@ -142,12 +142,13 @@ class LightingController:
             self.wait_thread.join(timeout=1)
             self.wait_thread = None
 
-    def battle_start(self):
-        self.chase_sequence(255, 255, 255, 255, duration = 4)
-        time.sleep(5) #4s of chase sequence, then 1 second of pause (anticipation)
+    def battle_start(self, chase = True):
+        if(chase):
+            self.chase_sequence(255, 255, 255, 255, duration = 4)
+            time.sleep(5) #4s of chase sequence, then 1 second of pause (anticipation)
 
         self.stop_wait()
-        def _run():
+        def _run(): #red flash 3 2 1 countdown
             self.data = [0]*512
             self.data[6] = 255
             self.data[7] = 255

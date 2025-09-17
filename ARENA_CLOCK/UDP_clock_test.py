@@ -15,7 +15,7 @@ port = 50001
 
 # Constants
 MATCH_DURATION_MS = 180000  # 3 minutes
-ANIMATION_BUFFER_MS = 3000  # delay before match starts
+ANIMATION_BUFFER_MS = 8000  # delay before match starts (5s chase seq, 3s red flash)
 
 # Match state
 match_start_time = None
@@ -70,7 +70,7 @@ def resume_match():
     match_start_time = int(time.time() * 1000)
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
-    lights.battle_start()
+    lights.battle_start(chase = False)
     send_command(3, remaining_ms)
 
 def add_time(new_time_ms):
