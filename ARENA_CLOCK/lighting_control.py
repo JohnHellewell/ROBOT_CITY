@@ -156,6 +156,7 @@ class LightingController:
         for i in range(4):
             self.data[i*8+6] = 255
             self.data[i*8+7] = 255
+        self.send_dmx(replicate = False)
             
 
     def _wait_loop(self):
