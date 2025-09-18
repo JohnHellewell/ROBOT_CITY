@@ -13,9 +13,10 @@ class LightingController:
 
 
         # Event loop thread
-        self.thread = threading.Thread(target=self.wrapper.Run)
-        self.thread.daemon = True
-        self.thread.start()
+        #self.thread = threading.Thread(target=self.wrapper.Run)
+        #self.thread.daemon = True
+        #self.thread.start()
+        self.wrapper.Run()  # blocking, runs in main thread
 
         # Event to control wait loop
         self.waiting = threading.Event()
