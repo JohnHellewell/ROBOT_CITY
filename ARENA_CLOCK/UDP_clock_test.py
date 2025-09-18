@@ -95,7 +95,7 @@ def winner(winner):
     lights.celebrate(winner)
     send_command(5, remaining_ms)
     match_start_time = None
-    print("%s team won!", winner)
+    print(f"{winner} team won!")
 
 def parse_time_input(time_str):
     try:
