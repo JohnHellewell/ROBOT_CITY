@@ -10,17 +10,14 @@ class LightingController:
         self.wrapper = ClientWrapper()
         self.client = self.wrapper.Client()
         self.data = [0] * 512
-
-
-        # Event loop thread
-        #self.thread = threading.Thread(target=self.wrapper.Run)
-        #self.thread.daemon = True
-        #self.thread.start()
-        self.wrapper.Run()  # blocking, runs in main thread
-
-        # Event to control wait loop
         self.waiting = threading.Event()
-        self.wait_thread = None
+
+        # Automatically start OLA loop in main thread
+        import threading, sys
+        if threading.current_thread() is threading.main_thread():
+            threading.Thread(target=self.wrapper.Run, daemon=True).start()
+        else:
+            print("WARNING: wrapper.Run must be in main thread")
 
     def send_dmx(self, data=None, replicate = True):
         if data is None:
