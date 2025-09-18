@@ -188,5 +188,15 @@ def main():
             print("Unknown command. Valid commands: start, pause, resume, add, ko, exit.")
 
 if __name__ == "__main__":
-    lights.wait()
-    main()
+    # Start OLA loop in main thread
+    import threading
+    import sys
+
+    # Start monitor and wait loops
+    threading.Thread(target=monitor_timer, daemon=True).start()
+    lights.wait()  # starts the background _wait_loop thread
+
+    # Start main control loop in main thread
+    # But OLA needs its event loop running:
+    from ola.ClientWrapper import ClientWrapper
+    lights.wrapper.Run()  # BLOCKS main thread, safe
