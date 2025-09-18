@@ -116,12 +116,15 @@ class LightingController:
     
     def celebrate(self, color):
         rgb = [0, 0, 0]
+        amb = 0
         if color == "BLUE":
             rgb = [0, 0, 255]
         elif color == "ORANGE":
-            rgb = [255, 91, 0]
+            rgb = [255, 30, 0]
+            amb = 255
         elif color == "YELLOW":
             rgb = [255, 255, 0]
+            amb = 255
         elif color == "GREEN":
             rgb = [0, 255, 0]
         else:
@@ -129,7 +132,7 @@ class LightingController:
 
         self.fade_out()
         time.sleep(1)
-        self.chase_sequence(r=rgb[0], g=rgb[1], b=rgb[2], white=0)
+        self.chase_sequence(r=rgb[0], g=rgb[1], b=rgb[2], white=0, amber=amb)
 
     def fade_out(self, duration = 1.0):
         self.stop_wait() #kill anything running
