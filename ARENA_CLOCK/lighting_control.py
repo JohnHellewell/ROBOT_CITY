@@ -116,13 +116,13 @@ class LightingController:
     
     def celebrate(self, color):
         rgb = [0, 0, 0]
-        if color is "BLUE":
+        if color == "BLUE":
             rgb = [0, 0, 255]
-        elif color is "ORANGE":
+        elif color == "ORANGE":
             rgb = [255, 91, 0]
-        elif color is "YELLOW":
+        elif color == "YELLOW":
             rgb = [255, 255, 0]
-        elif color is "GREEN":
+        elif color == "GREEN":
             rgb = [0, 255, 0]
         else:
             pass #0, 0, 0
