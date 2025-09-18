@@ -45,7 +45,7 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
     
-    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.02, period=0.45, duration=5.0):
+    def chase_sequence(self, r=255, g=255, b=255, white=255, amber = 0, delay=0.02, period=0.45, duration=5.0):
     
         self.stop_wait()
 
@@ -89,6 +89,7 @@ class LightingController:
                     self.data[offset + 1] = g
                     self.data[offset + 2] = b
                     self.data[offset + 3] = white
+                    self.data[offset + 4] = amber
 
                     # Strobes full on
                     self.data[offset + 6] = 255
