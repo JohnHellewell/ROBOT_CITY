@@ -89,6 +89,14 @@ def ko_match():
     send_command(5, remaining_ms)
     print("Match ended with KO. Returning to waiting state.")
 
+def winner(winner):
+    global current_state, match_start_time, remaining_ms
+    current_state = "waiting"
+    lights.celebrate(winner)
+    send_command(5, remaining_ms)
+    match_start_time = None
+    print("%s team won!", winner)
+
 def parse_time_input(time_str):
     try:
         m, s = map(int, time_str.split(":"))
@@ -118,7 +126,7 @@ def main():
     threading.Thread(target=monitor_timer, daemon=True).start()
 
     print("Welcome to the Combat Robot Timer Control")
-    print("Commands: | start | pause | resume | add | ko | exit |")
+    print("Commands: | start | pause | resume | add | ko | winner | exit |")
 
     while True:
         # Check if match time has expired
@@ -163,6 +171,15 @@ def main():
                 ko_match()
             else:
                 print("KO command can only be used during a match.")
+        
+        elif cmd == "winner":
+            if current_state in ("counting", "paused"):
+                winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
+                while winner_input not in ("YELLOW", "ORANGE", "BLUE", "GREEN"):
+                    winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
+                winner(winner_input)
+            else:
+                print("winner command can only be during a match (i know thats broken)")
 
         elif cmd == "exit":
             print("Exiting timer control.")

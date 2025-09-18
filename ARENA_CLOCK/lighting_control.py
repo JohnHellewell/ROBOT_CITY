@@ -114,6 +114,23 @@ class LightingController:
         self.data[5] = uv
         self.send_dmx()
     
+    def celebrate(self, color):
+        rgb = [0, 0, 0]
+        if color is "BLUE":
+            rgb = [0, 255, 0]
+        elif color is "ORANGE":
+            rgb = [255, 91, 0]
+        elif color is "YELLOW":
+            rgb = [255, 255, 0]
+        elif color is "GREEN":
+            rgb = [0, 255, 0]
+        else:
+            pass #0, 0, 0
+
+        self.fade_out()
+        time.sleep(1)
+        self.chase_sequence(r=rgb[0], g=rgb[1], b=rgb[2])
+
     def fade_out(self, duration = 1.0):
         self.stop_wait() #kill anything running
         delay = 0.01
