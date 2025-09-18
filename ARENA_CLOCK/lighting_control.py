@@ -125,7 +125,7 @@ class LightingController:
                 if wait == 0.0:
                     self.data[i*8+7] = 255
                 else:
-                    self.data[i*8+7] = int(255 * (wait/duration))
+                    self.data[i*8+7] = int(255 - (255 * (wait/duration)))
             self.send_dmx(replicate = False)
             time.sleep(delay)
             wait += delay
