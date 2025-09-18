@@ -113,19 +113,19 @@ class LightingController:
         self.data[5] = uv
         self.send_dmx()
     
-    def fade_out(self, time = 1.0):
+    def fade_out(self, duration = 1.0):
         self.stop_wait() #kill anything running
         delay = 0.01
         wait = 0.0
         
         data = self.data[:8*4]
 
-        while wait < time:
+        while wait < duration:
             for i in range(4):
                 if wait == 0.0:
                     self.data[i*8+7] = 255
                 else:
-                    self.data[i*8+7] = int(255 / (wait/time))
+                    self.data[i*8+7] = int(255 / (wait/duration))
             self.send_dmx(replicate = False)
             time.sleep(delay)
             wait += delay
