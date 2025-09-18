@@ -37,6 +37,7 @@ class LightingController:
 
             # replace original
             data = new_data
+            self.data = new_data
 
 
         def dmx_sent(status):
