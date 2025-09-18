@@ -188,15 +188,14 @@ def main():
             print("Unknown command. Valid commands: start, pause, resume, add, ko, exit.")
 
 if __name__ == "__main__":
-    # Start OLA loop in main thread
-    import threading
-    import sys
+    lights = LightingController()
 
-    # Start monitor and wait loops
+    # Start background threads
     threading.Thread(target=monitor_timer, daemon=True).start()
-    lights.wait()  # starts the background _wait_loop thread
+    lights.wait()  # starts _wait_loop thread
 
-    # Start main control loop in main thread
-    # But OLA needs its event loop running:
-    from ola.ClientWrapper import ClientWrapper
-    lights.wrapper.Run()  # BLOCKS main thread, safe
+    # Main input loop runs in a separate thread or main thread
+    threading.Thread(target=main, daemon=True).start()
+
+    # Run OLA event loop in main thread (blocks here, required)
+    lights.wrapper.Run()
