@@ -129,11 +129,11 @@ class LightingController:
         self.fade_out()
         time.sleep(1)
             
-        for i in range(3): #flash color
+        for i in range(4): #flash color
             self.rgb(r=rgb[0], g=rgb[1], b=rgb[2], amber = amb)
-            time.sleep(0.25)
+            time.sleep(0.2)
             self.rgb(0, 0, 0, amber=0)
-            time.sleep(0.25)
+            time.sleep(0.2)
         self.rgb(255, 255, 255, amber = amb)
 
         self.chase_sequence(r=rgb[0], g=rgb[1], b=rgb[2], white=0, amber=amb)
