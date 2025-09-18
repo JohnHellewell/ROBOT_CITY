@@ -173,13 +173,11 @@ def main():
                 print("KO command can only be used during a match.")
         
         elif cmd == "winner":
-            if current_state in ("counting", "paused"):
+            winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
+            while winner_input not in ("YELLOW", "ORANGE", "BLUE", "GREEN"):
                 winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
-                while winner_input not in ("YELLOW", "ORANGE", "BLUE", "GREEN"):
-                    winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
-                winner(winner_input)
-            else:
-                print("winner command can only be during a match (i know thats broken)")
+            winner(winner_input)
+            
 
         elif cmd == "exit":
             print("Exiting timer control.")
