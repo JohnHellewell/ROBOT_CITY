@@ -27,7 +27,7 @@ lock = threading.Lock()
 # Platform dependent axis mapping for right stick and triggers
 if platform.system() == "Linux":
     AXIS_RIGHT_X = 3
-    AXIS_RIGHT_Y = 4
+    AXIS_RIGHT_Y = 1
     AXIS_LEFT_TRIGGER = 2
     AXIS_RIGHT_TRIGGER = 5
 else:
