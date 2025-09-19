@@ -74,7 +74,7 @@ def check_dead_zone(a, b):
     return a, b
 
 def get_robot_info(robot_id):
-    db_handler.get_robot_info(robot_id)
+    return db_handler.get_robot_info(robot_id)
     
 class RobotControllerThread(threading.Thread):
     def __init__(self, player_id, joystick, ip, port, inverts, bot_info):
