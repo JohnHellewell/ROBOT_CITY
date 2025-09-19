@@ -18,12 +18,15 @@ enum RobotType {
 };
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int localPort = 4223;  // Each robot should have its own port
-const bool BIDIRECTIONAL_WEAPON = false; //must reflect the ESC settings
+const unsigned int robot_id = 21;
 ChipType chip = chip_MPU6050; //standard for first batch of boards
-const RobotType robotType = HORIZ;
 const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
+
+unsigned int localPort = 4200 + robot_id;
+bool BIDIRECTIONAL_WEAPON;
+RobotType robotType;
+
 
 #define SCL 6 
 #define SDA 7 
@@ -92,6 +95,27 @@ void setup(void) {
   if(!PLOT_MODE){
     Serial.print("Running software version ");
     Serial.println(SOFTWARE_VERSION);
+  }
+
+  switch(robot_id/10){
+    case 1: { //drum bot
+      BIDIRECTIONAL_WEAPON = true;
+      robotType = DRUM;
+      break;
+    }
+    case 2: {
+      BIDIRECTIONAL_WEAPON = false;
+      robotType = HORIZ;
+    }
+    case 3: { //vert bot
+      BIDIRECTIONAL_WEAPON = true;
+      robotType = VERT;
+      break;
+    }
+    default: { //flipper
+      BIDIRECTIONAL_WEAPON = false;
+      robotType = LIFTER;
+    }
   }
   
   lastPacketReceived = millis();
@@ -526,6 +550,12 @@ void setup_OTA(){
 
 //connects to Wi-Fi and begins UDP
 void connectToWiFi() { 
+  IPAddress local_IP(192, 168, 8, robot_id);
+  IPAddress gateway(192, 168, 8, 1);
+  IPAddress subnet(255, 255, 255, 0);
+
+  WiFi.config(local_IP, gateway, subnet);
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   // Set lower WiFi transmit power (e.g., 10 dBm)
@@ -555,28 +585,6 @@ void connectToWiFi() {
   if(!PLOT_MODE)
     Serial.println("UDP listening on port " + String(localPort));
 }
-
-/*
-void calibrateZ() {
-  Serial.println("Calibrating... Please keep the board flat and still.");
-  delay(2000);  // Give user time to settle the board
-
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  float current_z = a.acceleration.z;
-
-  if(current_z > 5.0){
-    z_offset = 10.0 - current_z; //I used 10.0 instead of 9.8 , since flipping it upside down tends to overestimate gravity's pull
-  } else {
-    Serial.println("Unable to calibrate");
-  }
-
-  Serial.print("Calibration complete. Applied Z offset: ");
-  Serial.println(z_offset);
-} 
-*/
-
 
 
 void loop() {
