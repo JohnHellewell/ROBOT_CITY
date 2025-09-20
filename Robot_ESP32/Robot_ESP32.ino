@@ -18,7 +18,7 @@ enum RobotType {
 };
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int robot_id = 21;
+const unsigned int robot_id = 20;
 ChipType chip = chip_MPU6050; //standard for first batch of boards
 const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
@@ -64,11 +64,11 @@ const bool SERVO_BOT = false; //true if bot is equipped with servo weapon, false
 
 const int CH1_DEFAULT = 1500; 
 const int CH2_DEFAULT = 1500;
-int CH3_DEFAULT = BIDIRECTIONAL_WEAPON ? 1500 : 1000;
+int CH3_DEFAULT;
 
 int ch1 = CH1_DEFAULT; 
 int ch2 = CH2_DEFAULT;
-int ch3 = CH3_DEFAULT; 
+int ch3; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
 
 //bool right_motor_reverse = false;
@@ -97,6 +97,8 @@ void setup(void) {
     Serial.println(SOFTWARE_VERSION);
   }
 
+  
+
   switch(robot_id/10){
     case 1: { //drum bot
       BIDIRECTIONAL_WEAPON = true;
@@ -106,6 +108,7 @@ void setup(void) {
     case 2: {
       BIDIRECTIONAL_WEAPON = false;
       robotType = HORIZ;
+      break;
     }
     case 3: { //vert bot
       BIDIRECTIONAL_WEAPON = true;
@@ -117,6 +120,13 @@ void setup(void) {
       robotType = LIFTER;
     }
   }
+
+  if(BIDIRECTIONAL_WEAPON)
+    CH3_DEFAULT = 1500;
+  else
+    CH3_DEFAULT = 1000;
+
+  ch3 = CH3_DEFAULT;
   
   lastPacketReceived = millis();
 
@@ -462,6 +472,11 @@ void execute_package(int v1, int v2, int v3, int v4){
         if(!is_safe_killswitch_change(v1, v2, v3, v4)){
           if(!PLOT_MODE)
             Serial.println("Robot will not move until drive and weapon are at rest");
+            Serial.println(v1);
+            Serial.println(v2);
+            Serial.println(v3);
+            Serial.print("CH3_DEFAULT: ");
+            Serial.println(CH3_DEFAULT);
           return;
         }
         killswitch = 2;
