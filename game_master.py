@@ -116,7 +116,7 @@ class RobotControllerThread(threading.Thread):
                 ks = killswitch_value
 
 
-            packet = struct.pack('HHHH', ch1, ch2, ch3, ks)
+            packet = struct.pack('HHHHH', ch1, ch2, ch3, ks, self.inverts[3])
             try:
                 self.sock.sendto(packet, (self.ip, self.port))
                 data, _ = self.sock.recvfrom(1024)

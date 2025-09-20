@@ -18,7 +18,7 @@ enum RobotType {
 };
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int robot_id = 20;
+const unsigned int robot_id = 31;
 ChipType chip = chip_MPU6050; //standard for first batch of boards
 const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
@@ -70,6 +70,7 @@ int ch1 = CH1_DEFAULT;
 int ch2 = CH2_DEFAULT;
 int ch3; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
+int invert_for_steer = 0; //0 is off, 1 is on
 
 //bool right_motor_reverse = false;
 //bool left_motor_reverse = true;
@@ -386,7 +387,11 @@ void mix_and_write(){
   }
 
  if(flipped){ 
-    forward = -forward;
+    if(invert_for_steer==0){
+      forward = -forward;
+    } else {
+      turn = -turn;
+    }
     if(BIDIRECTIONAL_WEAPON){
         weapon = -weapon;
     }
@@ -426,12 +431,15 @@ void mix_and_write(){
   
 }
 
-void execute_package(int v1, int v2, int v3, int v4){
+void execute_package(int v1, int v2, int v3, int v4, int v5){
+  invert_for_steer = v5;
+  
   if(v4 != 0 && v4 != 2 && v4 != 1){ //make sure valid killswitch signal is received. If not, activate killswitch and disable bot
       ch1 = CH1_DEFAULT;
       ch2 = CH2_DEFAULT;
       ch3 = CH3_DEFAULT;
       killswitch = 0;
+      
       if(!PLOT_MODE){
         Serial.print("INVALID KILLSWITCH SIGNAL RECEIVED! received: ");
         Serial.println(v4);
@@ -495,7 +503,7 @@ void UDP_packet() {
     len = udp.read((uint8_t*)incomingPacket, sizeof(incomingPacket));
   }
 
-  if (len == 8) {
+  if (len == 10) {
     lastPacketReceived = millis();
 
     if (!connected) {
@@ -509,8 +517,9 @@ void UDP_packet() {
     int v2 = values[1];
     int v3 = values[2];
     int v4 = values[3];
+    int v5 = values[4];
 
-    execute_package(v1, v2, v3, v4);
+    execute_package(v1, v2, v3, v4, v5);
     mix_and_write();
 
     bool received = true;
@@ -519,7 +528,7 @@ void UDP_packet() {
     udp.endPacket();
   } else if (connected && millis() - lastPacketReceived >= FAILSAFE_DISCONNECT) {
     connected = false;
-    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
+    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0, 0);
     mix_and_write();
     if(!PLOT_MODE)
       Serial.println("Connection dropped! Failsafe enabled");
