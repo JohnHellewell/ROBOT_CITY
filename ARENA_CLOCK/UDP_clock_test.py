@@ -15,7 +15,7 @@ port = 50001
 
 # Constants
 MATCH_DURATION_MS = 180000  # 3 minutes
-ANIMATION_BUFFER_MS = 3000  # delay before match starts
+ANIMATION_BUFFER_MS = 8000  # delay before match starts (5s chase seq, 3s red flash)
 
 # Match state
 match_start_time = None
@@ -70,7 +70,7 @@ def resume_match():
     match_start_time = int(time.time() * 1000)
     match_end_time = match_start_time + remaining_ms + ANIMATION_BUFFER_MS
     current_state = "counting"
-    lights.battle_start()
+    lights.battle_start(chase = False)
     send_command(3, remaining_ms)
 
 def add_time(new_time_ms):
@@ -88,6 +88,14 @@ def ko_match():
     lights.wait()
     send_command(5, remaining_ms)
     print("Match ended with KO. Returning to waiting state.")
+
+def winner(winner):
+    global current_state, match_start_time, remaining_ms
+    current_state = "waiting"
+    lights.celebrate(winner)
+    send_command(5, remaining_ms)
+    match_start_time = None
+    print(f"{winner} team won!")
 
 def parse_time_input(time_str):
     try:
@@ -118,7 +126,7 @@ def main():
     threading.Thread(target=monitor_timer, daemon=True).start()
 
     print("Welcome to the Combat Robot Timer Control")
-    print("Commands: | start | pause | resume | add | ko | exit |")
+    print("Commands: | start | pause | resume | add | ko | winner | exit |")
 
     while True:
         # Check if match time has expired
@@ -163,6 +171,13 @@ def main():
                 ko_match()
             else:
                 print("KO command can only be used during a match.")
+        
+        elif cmd == "winner":
+            winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
+            while winner_input not in ("YELLOW", "ORANGE", "BLUE", "GREEN"):
+                winner_input = input("Ender team that won: YELLOW, BLUE, ORANGE, GREEN: ").strip().upper()
+            winner(winner_input)
+            
 
         elif cmd == "exit":
             print("Exiting timer control.")
@@ -173,5 +188,14 @@ def main():
             print("Unknown command. Valid commands: start, pause, resume, add, ko, exit.")
 
 if __name__ == "__main__":
-    lights.wait()
-    main()
+    lights = LightingController()
+
+    # Start background threads
+    threading.Thread(target=monitor_timer, daemon=True).start()
+    lights.wait()  # starts _wait_loop thread
+
+    # Main input loop runs in a separate thread or main thread
+    threading.Thread(target=main, daemon=True).start()
+
+    # Run OLA event loop in main thread (blocks here, required)
+    lights.wrapper.Run()

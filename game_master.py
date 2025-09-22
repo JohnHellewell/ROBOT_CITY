@@ -27,7 +27,7 @@ lock = threading.Lock()
 # Platform dependent axis mapping for right stick and triggers
 if platform.system() == "Linux":
     AXIS_RIGHT_X = 3
-    AXIS_RIGHT_Y = 4
+    AXIS_RIGHT_Y = 1
     AXIS_LEFT_TRIGGER = 2
     AXIS_RIGHT_TRIGGER = 5
 else:
@@ -74,7 +74,7 @@ def check_dead_zone(a, b):
     return a, b
 
 def get_robot_info(robot_id):
-    db_handler.get_robot_info()
+    return db_handler.get_robot_info(robot_id)
     
 class RobotControllerThread(threading.Thread):
     def __init__(self, player_id, joystick, ip, port, inverts, bot_info):

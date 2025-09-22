@@ -11,11 +11,6 @@ class LightingController:
         self.client = self.wrapper.Client()
         self.data = [0] * 512
 
-        # Event loop thread
-        self.thread = threading.Thread(target=self.wrapper.Run)
-        self.thread.daemon = True
-        self.thread.start()
-
         # Event to control wait loop
         self.waiting = threading.Event()
         self.wait_thread = None
@@ -36,6 +31,7 @@ class LightingController:
 
             # replace original
             data = new_data
+            self.data = new_data
 
 
         def dmx_sent(status):
@@ -43,7 +39,7 @@ class LightingController:
 
         self.client.SendDmx(UNIVERSE, bytearray(data), dmx_sent)
     
-    def chase_sequence(self, r=255, g=255, b=255, white=255, delay=0.02, period=0.45, duration=5.0):
+    def chase_sequence(self, r=255, g=255, b=255, white=255, amber = 0, delay=0.02, period=0.45, duration=5.0):
     
         self.stop_wait()
 
@@ -62,10 +58,10 @@ class LightingController:
 
                 # Default intensity scale (0→1)
                 scale = 1.0
-                if t < 1.0:  # fade-in
-                    scale = t / 1.0
-                elif remaining < 1.0:  # fade-out
-                    scale = remaining / 1.0
+                if t < 0.5:  # fade-in
+                    scale = t / 0.5
+                elif remaining < 0.5:  # fade-out
+                    scale = remaining / 0.5
 
                 self.data = [0] * 512
 
@@ -79,21 +75,19 @@ class LightingController:
                     if sine_val < 0.5:
                         brightness = 0
                     else:
-                        # Map [0.5, 1] → [0, 1]
                         brightness = (sine_val - 0.5) * 2  
-
-                    brightness *= scale  # apply fade-in/out scale
 
                     # Scale colors
                     offset = light * 8
-                    self.data[offset + 0] = int(r * brightness)
-                    self.data[offset + 1] = int(g * brightness)
-                    self.data[offset + 2] = int(b * brightness)
-                    self.data[offset + 3] = int(white * brightness)
+                    self.data[offset + 0] = r
+                    self.data[offset + 1] = g
+                    self.data[offset + 2] = b
+                    self.data[offset + 3] = white
+                    self.data[offset + 4] = amber
 
                     # Strobes full on
                     self.data[offset + 6] = 255
-                    self.data[offset + 7] = 255
+                    self.data[offset + 7] = int(255 * scale * brightness)
 
                 self.send_dmx(replicate=False)
                 time.sleep(delay)
@@ -106,32 +100,97 @@ class LightingController:
         self.wait_thread.start()
 
 
-    def rgb(self, r, g, b, white = 0):
+    def rgb(self, r, g, b, white = 0, amber = 0, uv = 0):
         self.data[0] = r
         self.data[1] = g
         self.data[2] = b
         self.data[3] = white
+        self.data[4] = amber
+        self.data[5] = uv
         self.send_dmx()
+    
+    def celebrate(self, color):
+        rgb = [0, 0, 0]
+        amb = 0
+        if color == "BLUE":
+            rgb = [0, 0, 255]
+        elif color == "ORANGE":
+            rgb = [255, 30, 0]
+            amb = 255
+        elif color == "YELLOW":
+            rgb = [255, 255, 0]
+            amb = 255
+        elif color == "GREEN":
+            rgb = [0, 255, 0]
+        else:
+            pass #0, 0, 0
+
+        self.stop_wait()
+        self.fade_out()
+        time.sleep(1)
+            
+        for i in range(6): #flash color
+            self.rgb(r=rgb[0], g=rgb[1], b=rgb[2], amber = amb)
+            time.sleep(0.15)
+            self.rgb(0, 0, 0, amber=0)
+            time.sleep(0.15)
+        self.rgb(255, 255, 255, amber = amb)
+
+        self.chase_sequence(r=rgb[0], g=rgb[1], b=rgb[2], white=0, amber=amb)
+
+    def fade_out(self, duration = 1.0):
+        self.stop_wait() #kill anything running
+        delay = 0.01
+        wait = 0.0
+        
+        data = self.data[:8*4]
+
+        while wait < duration:
+            for i in range(4):
+                if wait == 0.0:
+                    self.data[i*8+7] = 255
+                else:
+                    self.data[i*8+7] = int(255 - (255 * (wait/duration)))
+            self.send_dmx(replicate = False)
+            time.sleep(delay)
+            wait += delay
+        
+        self.data = [0] * 512 #reset to all 0s except channels 6 & 7
+        for i in range(4):
+            self.data[i*8+6] = 255
+            self.data[i*8+7] = 255
+        self.send_dmx(replicate = False)
+            
 
     def _wait_loop(self):
+        delay = 0.02 #time waiting between updates
+
         self.waiting.set()
+
+        
+        time.sleep(5) #just a bit of a wait before starting the effects
+        for r in range(256):
+            if not self.waiting.is_set(): return
+            self.rgb(r, 0, 0)
+            time.sleep(delay)
         while self.waiting.is_set():
-            for r in range(256):
-                if not self.waiting.is_set(): return
-                self.rgb(r, 0, 0)
-                time.sleep(0.01)
             for g in range(256):
                 if not self.waiting.is_set(): return
                 self.rgb(255 - g, g, 0)
-                time.sleep(0.01)
+                time.sleep(delay)
             for b in range(256):
                 if not self.waiting.is_set(): return
                 self.rgb(0, 255 - b, b)
-                time.sleep(0.01)
+                time.sleep(delay)
+            for u in range(256):
+                if not self.waiting.is_set(): return
+                self.rgb(0, 0, 255-u, uv = u//2) #uv intensity cut n half
+                time.sleep(delay)
             for r in range(256):
                 if not self.waiting.is_set(): return
-                self.rgb(r, 0, 255 - r)
-                time.sleep(0.01)
+                self.rgb(r, 0, 0, uv = (255-r)//2)
+                time.sleep(delay)
+            
 
     def wait(self):
         # Stop any existing loop
@@ -145,13 +204,14 @@ class LightingController:
             self.wait_thread.join(timeout=1)
             self.wait_thread = None
 
-    def battle_start(self):
-        self.chase_sequence(255, 255, 255, 255)
-        time.sleep(5)
-        #self.stop_wait()
+    def battle_start(self, chase = True):
+        if(chase):
+            self.fade_out()
+            self.chase_sequence(255, 255, 255, 255, duration = 3)
+            time.sleep(5) #4s of chase sequence, then 1 second of pause (anticipation)
 
         self.stop_wait()
-        def _run():
+        def _run(): #red flash 3 2 1 countdown
             self.data = [0]*512
             self.data[6] = 255
             self.data[7] = 255
