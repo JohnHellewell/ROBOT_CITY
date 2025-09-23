@@ -169,7 +169,7 @@ def break_pair(player_id):
 
 def start_game():
     light_clock_handler.start_match()
-    time.sleep(5)
+    time.sleep(3)
     global killswitch_value
     with lock:
         killswitch_value = 2

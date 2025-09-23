@@ -208,7 +208,7 @@ class LightingController:
         if(chase):
             self.fade_out()
             self.chase_sequence(255, 255, 255, 255, duration = 3)
-            time.sleep(5) #4s of chase sequence, then 1 second of pause (anticipation)
+            time.sleep(4) #3s of chase sequence, then 1 second of pause (anticipation)
 
         self.stop_wait()
         def _run(): #red flash 3 2 1 countdown
