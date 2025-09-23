@@ -24,7 +24,16 @@ def timer_stop_game():
 
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 
-
+CONTROLLER_MAP = {
+    "A": 1,
+    "B": 2,
+    "C": 3,
+    "D": 4,
+    "E": 5,
+    "F": 6,
+    "G": 7,
+    "H": 8,
+}
 
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
@@ -271,13 +280,13 @@ class ArenaGUI:
         already_connected = [thread.bot_info[4] for thread in pairings.values()]  # assuming bot_info[4] = robot_id
 
         # Fetch robots from database, excluding already connected ones
-        robots = db_handler.db.get_robot_list(already_connected=already_connected)
+        robots = db_handler.get_robot_list(already_connected=already_connected)
         if not robots:
             messagebox.showinfo("No Robots", "No available robots to pair.")
             return
 
         # Map robots for display
-        robot_display = [f"{r['color']} - {r['robot_type']}" for r in robots]
+        robot_display = [f"{r['robot_type']} - {r['color']}" for r in robots]
 
         popup = tk.Toplevel()
         popup.title("Pair Robot")
@@ -305,7 +314,7 @@ class ArenaGUI:
                     messagebox.showerror("Error", "That robot is already paired!")
                     return
 
-            pair(controller, selected_robot_id)
+            pair(CONTROLLER_MAP[controller], selected_robot_id)
             popup.destroy()
 
         tk.Button(popup, text="Pair", command=on_pair, bg="green", fg="white").grid(row=2, column=0, columnspan=2, pady=15)
