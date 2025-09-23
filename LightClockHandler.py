@@ -7,7 +7,7 @@ from lighting_control import LightingController
 
 
 class LightClockHandler:
-    def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=8000):
+    def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=9000):
         # Lights
         self.lights = LightingController()
 

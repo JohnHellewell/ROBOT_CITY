@@ -14,6 +14,8 @@ class LightingController:
         # Event to control wait loop
         self.waiting = threading.Event()
         self.wait_thread = None
+        self.send_dmx(replicate=False)  # push a clean frame immediately
+
 
     def send_dmx(self, data=None, replicate = True):
         if data is None:
