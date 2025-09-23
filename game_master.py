@@ -266,40 +266,50 @@ class ArenaGUI:
             self.resume_fn()
             self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
 
-    def pair_robot_popup(self):
-        # Popup window
-        popup = tk.Toplevel(self.root)
-        popup.title("Pair Controller to Robot")
-        popup.geometry("400x300")
+    def pair_robot_popup():
+        # Gather already connected robots
+        already_connected = [thread.bot_info[4] for thread in pairings.values()]  # assuming bot_info[4] = robot_id
 
-        # Controller selection
-        tk.Label(popup, text="Select Controller:").pack(pady=10)
+        # Fetch robots from database, excluding already connected ones
+        robots = db_handler.db.get_robot_list(already_connected=already_connected)
+        if not robots:
+            messagebox.showinfo("No Robots", "No available robots to pair.")
+            return
+
+        # Map robots for display
+        robot_display = [f"{r['color']} - {r['robot_type']}" for r in robots]
+
+        popup = tk.Toplevel()
+        popup.title("Pair Robot")
+
+        tk.Label(popup, text="Select Controller:").grid(row=0, column=0, padx=10, pady=10)
         controller_var = tk.StringVar(popup)
         controller_var.set("A")  # default
         controller_menu = tk.OptionMenu(popup, controller_var, *list("ABCDEFGH"))
-        controller_menu.pack()
+        controller_menu.grid(row=0, column=1, padx=10, pady=10)
 
-        # Robot selection
-        tk.Label(popup, text="Select Robot:").pack(pady=10)
-        robots = db_handler.get_robot_list()  # list of available robot IDs
-        if not robots:
-            robots = ["None"]
+        tk.Label(popup, text="Select Robot:").grid(row=1, column=0, padx=10, pady=10)
         robot_var = tk.StringVar(popup)
-        robot_var.set(robots[0])
-        robot_menu = tk.OptionMenu(popup, robot_var, *robots)
-        robot_menu.pack()
+        robot_var.set(robot_display[0])
+        robot_menu = tk.OptionMenu(popup, robot_var, *robot_display)
+        robot_menu.grid(row=1, column=1, padx=10, pady=10)
 
-        # Confirm button
-        def confirm_pair():
+        def on_pair():
             controller = controller_var.get()
-            robot = robot_var.get()
-            if robot == "None":
-                messagebox.showerror("Error", "No robots available")
-                return
-            self.pair_fn(controller, robot)
+            selected_index = robot_display.index(robot_var.get())
+            selected_robot_id = robots[selected_index]['robot_id']
+
+            # Quick safety: ensure robot isn't already paired
+            for thread in pairings.values():
+                if thread.bot_info[4] == selected_robot_id:
+                    messagebox.showerror("Error", "That robot is already paired!")
+                    return
+
+            pair(controller, selected_robot_id)
             popup.destroy()
 
-        tk.Button(popup, text="PAIR", font=("Arial", 20), bg="green", fg="white", command=confirm_pair).pack(pady=20)
+        tk.Button(popup, text="Pair", command=on_pair, bg="green", fg="white").grid(row=2, column=0, columnspan=2, pady=15)
+        popup.grab_set()  # focus on this popup
 
 
 

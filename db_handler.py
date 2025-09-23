@@ -12,6 +12,30 @@ MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 MYSQL_HOST = os.getenv("MYSQL_HOST")
 TARGET_DB = os.getenv("TARGET_DB")
 
+def get_robot_list(already_connected=None):
+    if already_connected is None:
+        already_connected = []
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT robot_id, robot_type, color FROM robot")
+        result = cursor.fetchall()  # fetch all rows
+        cursor.close()
+        conn.close()
+
+        if result:
+            # Filter out already connected robots
+            filtered = [r for r in result if r['robot_id'] not in already_connected]
+
+            # Return list of dicts: each dict has 'id', 'type', 'color'
+            return filtered if filtered else None
+        else:
+            return None
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        return None
+
 
 def get_connection():
     return mysql.connector.connect(
