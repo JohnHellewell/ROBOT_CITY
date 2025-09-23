@@ -7,7 +7,7 @@ from lighting_control import LightingController
 
 
 class LightClockHandler:
-    def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=9000):
+    def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=9000, on_match_end=None):
         # Lights
         self.lights = LightingController()
 
@@ -15,6 +15,9 @@ class LightClockHandler:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.ip = ip
         self.port = port
+
+        #parent function call
+        self.on_match_end = on_match_end
 
         # Constants
         self.MATCH_DURATION_MS = match_duration_ms
@@ -125,6 +128,7 @@ class LightClockHandler:
                 self.remaining_ms = self.MATCH_DURATION_MS
                 self.match_start_time = None
                 self.match_end_time = None
+                self.on_match_end() #call parent function to end the match and close the robots
                 self.lights._wait_loop()
             time.sleep(0.1)
 

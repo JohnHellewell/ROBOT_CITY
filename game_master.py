@@ -15,7 +15,13 @@ from LightClockHandler import LightClockHandler
 pygame.init()
 pygame.joystick.init()
 
-light_clock_handler = LightClockHandler()
+def timer_stop_game():
+    global killswitch_value
+    with lock:
+        killswitch_value = 0
+    print("Game stopped (killswitch=0)")
+
+light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
