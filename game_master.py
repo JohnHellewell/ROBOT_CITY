@@ -5,12 +5,12 @@ import threading
 import time
 import platform
 import math
-import mysql.connector
-from mysql.connector import Error
 from dotenv import load_dotenv
 import os
 import db_handler
 from LightClockHandler import LightClockHandler
+import tkinter
+
 
 pygame.init()
 pygame.joystick.init()
@@ -22,6 +22,8 @@ def timer_stop_game():
     print("Game stopped (killswitch=0)")
 
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
+
+
 
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
@@ -224,6 +226,21 @@ if __name__ == "__main__":
     print("ROBOT CITY Game Manager")
     print("Type 'help' for a list of commands.")
 
+    # Launch GUI in its own thread
+    def launch_gui():
+        root = tk.Tk()
+        gui = ArenaGUI(
+            root,
+            start_fn=start_game,
+            stop_fn=stop_game,
+            pause_fn=pause_game,
+            resume_fn=resume_game
+        )
+        root.mainloop()
+
+    gui_thread = threading.Thread(target=launch_gui, daemon=True)
+    gui_thread.start()
+
     try:
         while True:
             cmd = input("Command: ").strip().lower()
@@ -280,3 +297,47 @@ if __name__ == "__main__":
         reset()
     finally:
         pygame.quit()
+
+class ArenaGUI:
+    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn):
+        self.start_fn = start_fn
+        self.stop_fn = stop_fn
+        self.pause_fn = pause_fn
+        self.resume_fn = resume_fn
+
+        self.root = root
+        self.root.title("Robot Arena Control")
+
+        # 1024x600 fullscreen
+        self.root.geometry("1024x600")
+        self.root.attributes("-fullscreen", True)
+
+        # Grid layout
+        self.root.grid_rowconfigure((0,1), weight=1)
+        self.root.grid_columnconfigure((0,1), weight=1)
+
+        # Start button
+        self.start_btn = tk.Button(root, text="START", font=("Arial", 36),
+                                   bg="green", fg="white",
+                                   command=self.start_fn)
+        self.start_btn.grid(row=0, column=0, sticky="nsew")
+
+        # Stop button
+        self.stop_btn = tk.Button(root, text="STOP", font=("Arial", 36),
+                                  bg="red", fg="white",
+                                  command=self.stop_fn)
+        self.stop_btn.grid(row=0, column=1, sticky="nsew")
+
+        # Pause/Resume button
+        self.pause_btn = tk.Button(root, text="PAUSE", font=("Arial", 36),
+                                   bg="orange", fg="black",
+                                   command=self.toggle_pause_resume)
+        self.pause_btn.grid(row=1, column=0, columnspan=2, sticky="nsew")
+
+    def toggle_pause_resume(self):
+        if self.pause_btn["text"] == "PAUSE":
+            self.pause_fn()
+            self.pause_btn.config(text="RESUME", bg="blue", fg="white")
+        else:
+            self.resume_fn()
+            self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
