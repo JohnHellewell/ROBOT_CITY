@@ -255,6 +255,10 @@ if __name__ == "__main__":
                 db_handler.show_types()
             elif cmd == "edit type":
                 db_handler.edit_type()
+            elif cmd == "pause":
+                pause_game()
+            elif cmd == "resume":
+                resume_game()
             elif cmd == "exit":
                 reset()
                 break
