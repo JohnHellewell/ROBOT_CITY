@@ -18,7 +18,7 @@ enum RobotType {
 };
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int robot_id = 31;
+const unsigned int robot_id = 33;
 ChipType chip = chip_MPU6050; //standard for first batch of boards
 const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
