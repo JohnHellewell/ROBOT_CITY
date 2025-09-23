@@ -45,10 +45,15 @@ class LightingController:
     
         self.stop_wait()
 
+        # 🔹 Ensure lights start clean (prevents first-run flicker)
+        self.data = [0] * 512
+        self.send_dmx(replicate=False)
+        time.sleep(0.05)  # small pause to let lights settle
+
         def _run():
             self.waiting.set()
             start_time = time.time()
-            end_time = start_time + duration
+            end_time = start_time + (duration - 0.05)
 
             while self.waiting.is_set():
                 now = time.time()
