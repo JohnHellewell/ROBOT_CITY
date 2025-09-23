@@ -243,35 +243,64 @@ class ArenaGUI:
         self.root.title("Robot Arena Control")
         self.root.geometry("1024x600")
         self.root.attributes("-fullscreen", True)
-        self.root.grid_rowconfigure((0,1,2), weight=1)
+        self.root.grid_rowconfigure((0,1,2,3), weight=1)
         self.root.grid_columnconfigure((0,1), weight=1)
 
-        # Existing buttons here...
-        # Start, Stop, Pause
+        # Example existing buttons...
+        self.start_btn = tk.Button(root, text="START", font=("Arial", 36), bg="green", fg="white", command=self.start_fn)
+        self.start_btn.grid(row=0, column=0, sticky="nsew")
+        self.stop_btn = tk.Button(root, text="STOP", font=("Arial", 36), bg="red", fg="white", command=self.stop_fn)
+        self.stop_btn.grid(row=0, column=1, sticky="nsew")
+        self.pause_btn = tk.Button(root, text="PAUSE", font=("Arial", 36), bg="orange", fg="black", command=self.toggle_pause_resume)
+        self.pause_btn.grid(row=1, column=0, columnspan=2, sticky="nsew")
 
         # Pair Robot button
-        self.pair_btn = tk.Button(root, text="PAIR ROBOT", font=("Arial", 24),
-                                  bg="purple", fg="white",
-                                  command=self.pair_robot_popup)
+        self.pair_btn = tk.Button(root, text="PAIR ROBOT", font=("Arial", 24), bg="purple", fg="white", command=self.pair_robot_popup)
         self.pair_btn.grid(row=2, column=0, columnspan=2, sticky="nsew")
 
+    def toggle_pause_resume(self):
+        if self.pause_btn["text"] == "PAUSE":
+            self.pause_fn()
+            self.pause_btn.config(text="RESUME", bg="blue", fg="white")
+        else:
+            self.resume_fn()
+            self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
+
     def pair_robot_popup(self):
-        # Ask for controller
-        controller = simpledialog.askstring("Controller", "Enter controller (A-H):")
-        if not controller or controller.upper() not in "ABCDEFGH":
-            messagebox.showerror("Error", "Invalid controller")
-            return
-        controller = controller.upper()
+        # Popup window
+        popup = tk.Toplevel(self.root)
+        popup.title("Pair Controller to Robot")
+        popup.geometry("400x300")
 
-        # Get current robot list from db_handler
-        robots = db_handler.get_robot_list()  # returns list of available robot IDs
-        robot = simpledialog.askstring("Robot", f"Enter robot ID ({', '.join(robots)}):")
-        if not robot or robot not in robots:
-            messagebox.showerror("Error", "Invalid robot")
-            return
+        # Controller selection
+        tk.Label(popup, text="Select Controller:").pack(pady=10)
+        controller_var = tk.StringVar(popup)
+        controller_var.set("A")  # default
+        controller_menu = tk.OptionMenu(popup, controller_var, *list("ABCDEFGH"))
+        controller_menu.pack()
 
-        # Call pairing function
-        self.pair_fn(controller, robot)
+        # Robot selection
+        tk.Label(popup, text="Select Robot:").pack(pady=10)
+        robots = db_handler.get_robot_list()  # list of available robot IDs
+        if not robots:
+            robots = ["None"]
+        robot_var = tk.StringVar(popup)
+        robot_var.set(robots[0])
+        robot_menu = tk.OptionMenu(popup, robot_var, *robots)
+        robot_menu.pack()
+
+        # Confirm button
+        def confirm_pair():
+            controller = controller_var.get()
+            robot = robot_var.get()
+            if robot == "None":
+                messagebox.showerror("Error", "No robots available")
+                return
+            self.pair_fn(controller, robot)
+            popup.destroy()
+
+        tk.Button(popup, text="PAIR", font=("Arial", 20), bg="green", fg="white", command=confirm_pair).pack(pady=20)
+
 
 
 
@@ -287,7 +316,8 @@ if __name__ == "__main__":
             start_fn=start_game,
             stop_fn=stop_game,
             pause_fn=pause_game,
-            resume_fn=resume_game
+            resume_fn=resume_game,
+            pair_fn=pair
         )
         root.mainloop()
 
