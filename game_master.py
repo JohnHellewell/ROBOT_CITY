@@ -168,7 +168,7 @@ def break_pair(player_id):
         print(f"{player_id} not paired.")
 
 def start_game():
-    light_clock_handler.start_game()
+    light_clock_handler.start_match()
     time.sleep(5)
     global killswitch_value
     with lock:
