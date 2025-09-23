@@ -10,6 +10,7 @@ import os
 import db_handler
 from LightClockHandler import LightClockHandler
 import tkinter as tk
+from tkinter import simpledialog, messagebox
 
 
 pygame.init()
@@ -148,6 +149,12 @@ def pair(player_id, robot_id):
     if player_id in pairings:
         print(f"{player_id} is already paired. Break first.")
         return
+    
+    # Check if robot is already paired
+    for thread in pairings.values():
+        if thread.bot_info[4] == robot_id:  # assuming bot_info[4] stores robot_id
+            print(f"Robot {robot_id} is already paired to another controller.")
+            return
 
     robot_info = get_robot_info(robot_id)
     if not robot_info:
@@ -222,49 +229,50 @@ def show_pairings():
         print(f"{player} -> {thread.ip}:{thread.port}")
 
 
+
+
 class ArenaGUI:
-    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn):
+    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn):
         self.start_fn = start_fn
         self.stop_fn = stop_fn
         self.pause_fn = pause_fn
         self.resume_fn = resume_fn
+        self.pair_fn = pair_fn
 
         self.root = root
         self.root.title("Robot Arena Control")
-
-        # 1024x600 fullscreen
         self.root.geometry("1024x600")
         self.root.attributes("-fullscreen", True)
-
-        # Grid layout
-        self.root.grid_rowconfigure((0,1), weight=1)
+        self.root.grid_rowconfigure((0,1,2), weight=1)
         self.root.grid_columnconfigure((0,1), weight=1)
 
-        # Start button
-        self.start_btn = tk.Button(root, text="START", font=("Arial", 36),
-                                   bg="green", fg="white",
-                                   command=self.start_fn)
-        self.start_btn.grid(row=0, column=0, sticky="nsew")
+        # Existing buttons here...
+        # Start, Stop, Pause
 
-        # Stop button
-        self.stop_btn = tk.Button(root, text="STOP", font=("Arial", 36),
-                                  bg="red", fg="white",
-                                  command=self.stop_fn)
-        self.stop_btn.grid(row=0, column=1, sticky="nsew")
+        # Pair Robot button
+        self.pair_btn = tk.Button(root, text="PAIR ROBOT", font=("Arial", 24),
+                                  bg="purple", fg="white",
+                                  command=self.pair_robot_popup)
+        self.pair_btn.grid(row=2, column=0, columnspan=2, sticky="nsew")
 
-        # Pause/Resume button
-        self.pause_btn = tk.Button(root, text="PAUSE", font=("Arial", 36),
-                                   bg="orange", fg="black",
-                                   command=self.toggle_pause_resume)
-        self.pause_btn.grid(row=1, column=0, columnspan=2, sticky="nsew")
+    def pair_robot_popup(self):
+        # Ask for controller
+        controller = simpledialog.askstring("Controller", "Enter controller (A-H):")
+        if not controller or controller.upper() not in "ABCDEFGH":
+            messagebox.showerror("Error", "Invalid controller")
+            return
+        controller = controller.upper()
 
-    def toggle_pause_resume(self):
-        if self.pause_btn["text"] == "PAUSE":
-            self.pause_fn()
-            self.pause_btn.config(text="RESUME", bg="blue", fg="white")
-        else:
-            self.resume_fn()
-            self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
+        # Get current robot list from db_handler
+        robots = db_handler.get_robot_list()  # returns list of available robot IDs
+        robot = simpledialog.askstring("Robot", f"Enter robot ID ({', '.join(robots)}):")
+        if not robot or robot not in robots:
+            messagebox.showerror("Error", "Invalid robot")
+            return
+
+        # Call pairing function
+        self.pair_fn(controller, robot)
+
 
 
 if __name__ == "__main__":
