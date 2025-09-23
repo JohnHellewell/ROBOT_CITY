@@ -156,7 +156,7 @@ class RobotControllerThread(threading.Thread):
 
 def pair(player_id, robot_id):
     if player_id in pairings:
-        print(f"{player_id} is already paired. Break first.")
+        print(f"Player {player_id} is already paired. Break first.")
         return
     
     # Check if robot is already paired
@@ -170,9 +170,10 @@ def pair(player_id, robot_id):
         print(f"Robot ID '{robot_id}' not found in database.")
         return
 
-    index = int(player_id[-1]) - 1
+    # player_id is already an integer 1-8
+    index = player_id - 1
     if index >= pygame.joystick.get_count():
-        print(f"No controller found for {player_id}.")
+        print(f"No controller found for player {player_id}.")
         return
 
     joystick = pygame.joystick.Joystick(index)
@@ -181,7 +182,8 @@ def pair(player_id, robot_id):
     thread = RobotControllerThread(player_id, joystick, ip, port, inverts, bot_info)
     pairings[player_id] = thread
     thread.start()
-    print(f"Paired {player_id} to {robot_id} ({ip}:{port})")
+    print(f"Paired player {player_id} to robot {robot_id} ({ip}:{port})")
+
 
 def break_pair(player_id):
     thread = pairings.pop(player_id, None)
@@ -350,7 +352,7 @@ if __name__ == "__main__":
                 parts = cmd.split()
                 if len(parts) == 3:
                     _, player_id, robot_id = parts
-                    pair(player_id, robot_id)
+                    pair(int(player_id), robot_id)
                 else:
                     print("Usage: pair playerX robot_id")
             elif cmd.startswith("break"):
