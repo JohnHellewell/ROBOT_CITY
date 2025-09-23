@@ -10,9 +10,12 @@ from mysql.connector import Error
 from dotenv import load_dotenv
 import os
 import db_handler
+from LightClockHandler import LightClockHandler
 
 pygame.init()
 pygame.joystick.init()
+
+light_clock_handler = LightClockHandler()
 
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
@@ -165,16 +168,36 @@ def break_pair(player_id):
         print(f"{player_id} not paired.")
 
 def start_game():
+    light_clock_handler.start_game()
+    time.sleep(5)
     global killswitch_value
     with lock:
         killswitch_value = 2
     print("Game started (killswitch=2)")
 
 def stop_game():
+    light_clock_handler.ko_match()
     global killswitch_value
     with lock:
         killswitch_value = 0
     print("Game stopped (killswitch=0)")
+
+def pause_game():
+    light_clock_handler.pause_match()
+    global killswitch_value
+    with lock:
+        killswitch_value = 0
+    print("game paused (killswitch=0)")
+
+def resume_game():
+    light_clock_handler.resume_match()
+    global killswitch_value
+    print("Game will resume after 3 2 1 countdown")
+    time.sleep(3)
+    with lock:
+        killswitch_value = 2
+    print("Game resumed (killswitch=2)")
+    
 
 def reset():
     global pairings
