@@ -26,12 +26,14 @@ class LightClockHandler:
         self.remaining_ms = self.MATCH_DURATION_MS
         self.current_state = "waiting"
 
-        # Start monitoring thread
+        # Stop flag for monitor thread
         self._stop_event = threading.Event()
+
+        # Start monitoring thread
         threading.Thread(target=self._monitor_timer, daemon=True).start()
 
-        # Set lights to waiting by default
-        self.lights._wait_loop()
+        # Start lights in waiting mode in a separate thread (non-blocking)
+        threading.Thread(target=self.lights.wait, daemon=True).start()
 
     # --------------------------
     # Helper methods
@@ -100,7 +102,7 @@ class LightClockHandler:
         self.current_state = "waiting"
         self.match_start_time = None
         self.match_end_time = None
-        self.lights._wait_loop()
+        self.lights.wait()
         self._send_command(5, self.remaining_ms)
         print("Match ended with KO. Returning to waiting state.")
 
@@ -111,9 +113,6 @@ class LightClockHandler:
         self.match_start_time = None
         self.match_end_time = None
         print(f"{winner} team won!")
-        self.lights._wait_loop()
-    
-    
 
     # --------------------------
     # Background monitor
@@ -126,7 +125,7 @@ class LightClockHandler:
                 self.remaining_ms = self.MATCH_DURATION_MS
                 self.match_start_time = None
                 self.match_end_time = None
-                self.lights._wait_loop()
+                self.lights.off()
             time.sleep(0.1)
 
     def stop(self):
