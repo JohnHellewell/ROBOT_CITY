@@ -266,7 +266,7 @@ class ArenaGUI:
             self.resume_fn()
             self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
 
-    def pair_robot_popup():
+    def pair_robot_popup(event=None):
         # Gather already connected robots
         already_connected = [thread.bot_info[4] for thread in pairings.values()]  # assuming bot_info[4] = robot_id
 
