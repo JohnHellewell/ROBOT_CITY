@@ -125,7 +125,7 @@ class LightClockHandler:
                 self.remaining_ms = self.MATCH_DURATION_MS
                 self.match_start_time = None
                 self.match_end_time = None
-                self.lights.off()
+                self.lights._wait_loop()
             time.sleep(0.1)
 
     def stop(self):
