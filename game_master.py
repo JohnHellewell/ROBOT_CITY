@@ -98,7 +98,7 @@ def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
     
 class RobotControllerThread(threading.Thread):
-    def __init__(self, player_id, joystick, ip, port, inverts, bot_info):
+    def __init__(self, player_id, joystick, ip, port, inverts, bot_info, bot_id):
         super().__init__()
         self.player_id = player_id
         self.joystick = joystick
@@ -106,6 +106,7 @@ class RobotControllerThread(threading.Thread):
         self.port = port
         self.inverts = inverts
         self.bot_info = bot_info
+        self.bot_id = bot_id
         self.running = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(0.01)  # short timeout for recvfrom
@@ -179,7 +180,7 @@ def pair(player_id, robot_id):
     joystick = pygame.joystick.Joystick(index)
     joystick.init()
     ip, port, inverts, bot_info = robot_info
-    thread = RobotControllerThread(player_id, joystick, ip, port, inverts, bot_info)
+    thread = RobotControllerThread(player_id, joystick, ip, port, inverts, bot_info, robot_id)
     pairings[player_id] = thread
     thread.start()
     print(f"Paired player {player_id} to robot {robot_id} ({ip}:{port})")
@@ -279,7 +280,7 @@ class ArenaGUI:
 
     def pair_robot_popup(event=None):
         # Gather already connected robots
-        already_connected = [thread.bot_info[4] for thread in pairings.values() if len(thread.bot_info) > 4]
+        already_connected = [thread.bot_id for thread in pairings.values()]
 
         # Fetch robots from database, excluding already connected ones
         robots = db_handler.get_robot_list(already_connected=already_connected)
