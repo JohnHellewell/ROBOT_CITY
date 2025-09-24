@@ -280,10 +280,12 @@ class ArenaGUI:
 
     def pair_robot_popup(event=None):
         # Gather already connected robots
-        already_connected = [thread.bot_id for thread in pairings.values()]
+        already_connected_bots = [thread.bot_id for thread in pairings.values()]
+        already_connected_controllers = [thread.player_id for thread in pairings.values()]
+        available_controllers = [chr(ord('A') + i - 1) for i in range(1, 9) if i not in already_connected_controllers]
 
         # Fetch robots from database, excluding already connected ones
-        robots = db_handler.get_robot_list(already_connected=already_connected)
+        robots = db_handler.get_robot_list(already_connected=already_connected_bots)
         if not robots:
             messagebox.showinfo("No Robots", "No available robots to pair.")
             return
