@@ -282,7 +282,7 @@ class ArenaGUI:
         # Gather already connected robots
         already_connected_bots = [thread.bot_id for thread in pairings.values()]
         already_connected_controllers = [thread.player_id for thread in pairings.values()]
-        available_controllers = [chr(ord('A') + i - 1) for i in range(1, 9) if i not in already_connected_controllers]
+        available_controllers = "".join([chr(ord('A') + i - 1) for i in range(1, 9) if i not in already_connected_controllers])
 
         # Fetch robots from database, excluding already connected ones
         robots = db_handler.get_robot_list(already_connected=already_connected_bots)
@@ -298,8 +298,8 @@ class ArenaGUI:
 
         tk.Label(popup, text="Select Controller:").grid(row=0, column=0, padx=10, pady=10)
         controller_var = tk.StringVar(popup)
-        controller_var.set("A")  # default
-        controller_menu = tk.OptionMenu(popup, controller_var, available_controllers)
+        controller_var.set(available_controllers[0])  # default
+        controller_menu = tk.OptionMenu(popup, controller_var, *available_controllers)
         controller_menu.grid(row=0, column=1, padx=10, pady=10)
 
         tk.Label(popup, text="Select Robot:").grid(row=1, column=0, padx=10, pady=10)
