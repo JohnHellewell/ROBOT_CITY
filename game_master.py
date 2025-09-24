@@ -255,9 +255,12 @@ class ArenaGUI:
 
         self.root = root
         self.root.title("Robot Arena Control")
-        self.root.geometry("1024x600")
-        #self.root.attributes("-fullscreen", True)
-        self.root.state("zoomed")
+        # Get screen dimensions
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+
+# Maximize window to fill screen (still shows title bar)
+root.geometry(f"{screen_width}x{screen_height}+0+0")
 
         # Grid config (4 rows, 2 cols)
         self.root.grid_rowconfigure((0, 1, 2, 3), weight=1)
