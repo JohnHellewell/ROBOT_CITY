@@ -285,12 +285,17 @@ class ArenaGUI:
         self.break_btn.grid(row=3, column=1, sticky="nsew")
 
         self.reset_btn = tk.Button(root, text="RESET ALL", font=("Arial", 24),
-                                   bg="black", fg="white", command=self.reset_fn)
+                                   bg="black", fg="white", command=self.reset_all_popup)
         self.reset_btn.grid(row=3, column=2, sticky="nsew")
 
         # Expand grid to 3 columns for bottom row
         self.root.grid_columnconfigure(2, weight=1)
 
+    def reset_all_popup(self, event=None):
+        """Popup confirmation when reset is triggered."""
+        self.reset_fn()  # Call your actual reset function
+        messagebox.showinfo("Reset All", "All pairings cleared.")
+    
     def break_pair_popup(self, event=None):
         if not pairings:
             messagebox.showinfo("No Active Connections", "There are no active connections to break.")
