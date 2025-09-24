@@ -299,7 +299,7 @@ class ArenaGUI:
         tk.Label(popup, text="Select Controller:").grid(row=0, column=0, padx=10, pady=10)
         controller_var = tk.StringVar(popup)
         controller_var.set("A")  # default
-        controller_menu = tk.OptionMenu(popup, controller_var, *list("ABCDEFGH"))
+        controller_menu = tk.OptionMenu(popup, controller_var, available_controllers)
         controller_menu.grid(row=0, column=1, padx=10, pady=10)
 
         tk.Label(popup, text="Select Robot:").grid(row=1, column=0, padx=10, pady=10)
