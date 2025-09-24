@@ -244,31 +244,52 @@ def show_pairings():
 
 
 class ArenaGUI:
-    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn):
+    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn, break_fn, reset_fn):
         self.start_fn = start_fn
         self.stop_fn = stop_fn
         self.pause_fn = pause_fn
         self.resume_fn = resume_fn
         self.pair_fn = pair_fn
+        self.break_fn = break_fn
+        self.reset_fn = reset_fn
 
         self.root = root
         self.root.title("Robot Arena Control")
         self.root.geometry("1024x600")
         self.root.attributes("-fullscreen", True)
-        self.root.grid_rowconfigure((0,1,2,3), weight=1)
-        self.root.grid_columnconfigure((0,1), weight=1)
 
-        # Example existing buttons...
-        self.start_btn = tk.Button(root, text="START", font=("Arial", 36), bg="green", fg="white", command=self.start_fn)
+        # Grid config (4 rows, 2 cols)
+        self.root.grid_rowconfigure((0, 1, 2, 3), weight=1)
+        self.root.grid_columnconfigure((0, 1), weight=1)
+
+        # Top buttons
+        self.start_btn = tk.Button(root, text="START", font=("Arial", 36),
+                                   bg="green", fg="white", command=self.start_fn)
         self.start_btn.grid(row=0, column=0, sticky="nsew")
-        self.stop_btn = tk.Button(root, text="STOP", font=("Arial", 36), bg="red", fg="white", command=self.stop_fn)
+
+        self.stop_btn = tk.Button(root, text="STOP", font=("Arial", 36),
+                                  bg="red", fg="white", command=self.stop_fn)
         self.stop_btn.grid(row=0, column=1, sticky="nsew")
-        self.pause_btn = tk.Button(root, text="PAUSE", font=("Arial", 36), bg="orange", fg="black", command=self.toggle_pause_resume)
+
+        self.pause_btn = tk.Button(root, text="PAUSE", font=("Arial", 36),
+                                   bg="orange", fg="black", command=self.toggle_pause_resume)
         self.pause_btn.grid(row=1, column=0, columnspan=2, sticky="nsew")
 
-        # Pair Robot button
-        self.pair_btn = tk.Button(root, text="PAIR ROBOT", font=("Arial", 24), bg="purple", fg="white", command=self.pair_robot_popup)
-        self.pair_btn.grid(row=2, column=0, columnspan=2, sticky="nsew")
+        # Bottom row: Pair / Break / Reset
+        self.pair_btn = tk.Button(root, text="PAIR ROBOT", font=("Arial", 24),
+                                  bg="purple", fg="white", command=self.pair_robot_popup)
+        self.pair_btn.grid(row=3, column=0, sticky="nsew")
+
+        self.break_btn = tk.Button(root, text="BREAK PAIR", font=("Arial", 24),
+                                   bg="brown", fg="white", command=self.break_fn)
+        self.break_btn.grid(row=3, column=1, sticky="nsew")
+
+        self.reset_btn = tk.Button(root, text="RESET ALL", font=("Arial", 24),
+                                   bg="black", fg="white", command=self.reset_fn)
+        self.reset_btn.grid(row=3, column=2, sticky="nsew")
+
+        # Expand grid to 3 columns for bottom row
+        self.root.grid_columnconfigure(2, weight=1)
 
     def toggle_pause_resume(self):
         if self.pause_btn["text"] == "PAUSE":
@@ -278,22 +299,23 @@ class ArenaGUI:
             self.resume_fn()
             self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
 
-    def pair_robot_popup(event=None):
-        # Gather already connected robots
+    def pair_robot_popup(self, event=None):
+        # Gather already connected robots and controllers
         already_connected_bots = [thread.bot_id for thread in pairings.values()]
         already_connected_controllers = [thread.player_id for thread in pairings.values()]
-        available_controllers = "".join([chr(ord('A') + i - 1) for i in range(1, 9) if i not in already_connected_controllers])
+        available_controllers = [chr(ord('A') + i - 1) for i in range(1, 9)
+                                 if i not in already_connected_controllers]
 
-        # Fetch robots from database, excluding already connected ones
+        # Fetch robots from DB
         robots = db_handler.get_robot_list(already_connected=already_connected_bots)
         if not robots:
             messagebox.showinfo("No Robots", "No available robots to pair.")
             return
-        if len(available_controllers)<=0:
+        if len(available_controllers) <= 0:
             messagebox.showinfo("No Controllers", "No available controllers to pair. Break connections first")
             return
 
-        # Map robots for display
+        # Robot display
         robot_display = [f"{r['robot_type']} - {r['color']}" for r in robots]
 
         popup = tk.Toplevel()
@@ -301,7 +323,7 @@ class ArenaGUI:
 
         tk.Label(popup, text="Select Controller:").grid(row=0, column=0, padx=10, pady=10)
         controller_var = tk.StringVar(popup)
-        controller_var.set(available_controllers[0])  # default
+        controller_var.set(available_controllers[0])
         controller_menu = tk.OptionMenu(popup, controller_var, *available_controllers)
         controller_menu.grid(row=0, column=1, padx=10, pady=10)
 
@@ -316,7 +338,6 @@ class ArenaGUI:
             selected_index = robot_display.index(robot_var.get())
             selected_robot_id = robots[selected_index]['robot_id']
 
-            # Quick safety: ensure robot isn't already paired
             for thread in pairings.values():
                 if thread.bot_id == selected_robot_id:
                     messagebox.showerror("Error", "That robot is already paired!")
@@ -325,8 +346,10 @@ class ArenaGUI:
             pair(CONTROLLER_MAP[controller], selected_robot_id)
             popup.destroy()
 
-        tk.Button(popup, text="Pair", command=on_pair, bg="green", fg="white").grid(row=2, column=0, columnspan=2, pady=15)
-        popup.grab_set()  # focus on this popup
+        tk.Button(popup, text="Pair", command=on_pair,
+                  bg="green", fg="white").grid(row=2, column=0, columnspan=2, pady=15)
+        popup.grab_set()
+
 
 
 
