@@ -289,6 +289,9 @@ class ArenaGUI:
         if not robots:
             messagebox.showinfo("No Robots", "No available robots to pair.")
             return
+        if len(available_controllers)<=0:
+            messagebox.showinfo("No Controllers", "No available controllers to pair. Break connections first")
+            return
 
         # Map robots for display
         robot_display = [f"{r['robot_type']} - {r['color']}" for r in robots]
