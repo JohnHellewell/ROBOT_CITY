@@ -162,7 +162,7 @@ def pair(player_id, robot_id):
     
     # Check if robot is already paired
     for thread in pairings.values():
-        if thread.bot_info[4] == robot_id:  # assuming bot_info[4] stores robot_id
+        if thread.bot_id == robot_id:  
             print(f"Robot {robot_id} is already paired to another controller.")
             return
 
