@@ -313,7 +313,7 @@ class ArenaGUI:
 
             # Quick safety: ensure robot isn't already paired
             for thread in pairings.values():
-                if thread.bot_info[4] == selected_robot_id:
+                if thread.bot_id == selected_robot_id:
                     messagebox.showerror("Error", "That robot is already paired!")
                     return
 
