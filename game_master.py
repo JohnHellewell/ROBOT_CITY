@@ -259,8 +259,8 @@ class ArenaGUI:
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
 
-# Maximize window to fill screen (still shows title bar)
-root.geometry(f"{screen_width}x{screen_height}+0+0")
+        # Maximize window to fill screen (still shows title bar)
+        root.geometry(f"{screen_width}x{screen_height}+0+0")
 
         # Grid config (4 rows, 2 cols)
         self.root.grid_rowconfigure((0, 1, 2, 3), weight=1)
