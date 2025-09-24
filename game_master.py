@@ -367,7 +367,9 @@ if __name__ == "__main__":
             stop_fn=stop_game,
             pause_fn=pause_game,
             resume_fn=resume_game,
-            pair_fn=pair
+            pair_fn=pair,
+            break_fn=break_pair,
+            reset_fn=reset
         )
         root.mainloop()
 
