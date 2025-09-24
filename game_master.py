@@ -281,7 +281,7 @@ class ArenaGUI:
         self.pair_btn.grid(row=3, column=0, sticky="nsew")
 
         self.break_btn = tk.Button(root, text="BREAK PAIR", font=("Arial", 24),
-                                   bg="brown", fg="white", command=self.break_fn)
+                                 bg="brown", fg="white", command=self.break_pair_popup)
         self.break_btn.grid(row=3, column=1, sticky="nsew")
 
         self.reset_btn = tk.Button(root, text="RESET ALL", font=("Arial", 24),
@@ -291,6 +291,45 @@ class ArenaGUI:
         # Expand grid to 3 columns for bottom row
         self.root.grid_columnconfigure(2, weight=1)
 
+        def break_pair_popup(self, event=None):
+            if not pairings:
+                messagebox.showinfo("No Active Connections", "There are no active connections to break.")
+                return
+
+            popup = tk.Toplevel()
+            popup.title("Break Pair")
+
+            tk.Label(popup, text="Select Pairing to Break:").grid(row=0, column=0, padx=10, pady=10)
+
+            # Build display list for current pairings
+            pairing_display = []
+            controllers = []
+            for thread in pairings.values():
+                player_id = thread.player_id  # should already be int (1–8)
+                bot_id = thread.bot_id
+                bot_info = thread.bot_info
+                # Show nice text (Controller A–H and bot type/color)
+                controller_label = chr(ord('A') + player_id - 1)
+                robot_label = f"{bot_info[0]} - {bot_info[1]}" if bot_info else f"Robot {bot_id}"
+                pairing_display.append(f"Controller {controller_label} → {robot_label}")
+                controllers.append(player_id)
+
+            pair_var = tk.StringVar(popup)
+            pair_var.set(pairing_display[0])
+            pair_menu = tk.OptionMenu(popup, pair_var, *pairing_display)
+            pair_menu.grid(row=0, column=1, padx=10, pady=10)
+
+            def on_break():
+                idx = pairing_display.index(pair_var.get())
+                controller_num = controllers[idx]  # integer 1–8
+                self.break_fn(controller_num)
+                popup.destroy()
+
+            tk.Button(popup, text="Break", command=on_break,
+                    bg="red", fg="white").grid(row=1, column=0, columnspan=2, pady=15)
+            popup.grab_set()
+
+    
     def toggle_pause_resume(self):
         if self.pause_btn["text"] == "PAUSE":
             self.pause_fn()
