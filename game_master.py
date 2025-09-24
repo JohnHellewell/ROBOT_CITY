@@ -279,7 +279,7 @@ class ArenaGUI:
 
     def pair_robot_popup(event=None):
         # Gather already connected robots
-        already_connected = [thread.bot_info[4] for thread in pairings.values()]  # assuming bot_info[4] = robot_id
+        already_connected = [thread.bot_info[4] for thread in pairings.values() if len(thread.bot_info) > 4]
 
         # Fetch robots from database, excluding already connected ones
         robots = db_handler.get_robot_list(already_connected=already_connected)
