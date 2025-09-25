@@ -212,9 +212,9 @@ class LightingController:
             self.wait_thread = None
     
     def battle_end(self, delay_s = 0):
-        def _wait():
-            time.sleep(delay_s)
-        threading.Thread(target=_wait, daemon=True).start()
+        
+        time.sleep(delay_s)
+        
         self.stop_wait()
         self.fade_out()
         self._wait_loop()
