@@ -67,12 +67,14 @@ class LightClockHandler:
             print("Match already started or in progress.")
             return
         self.remaining_ms = self.MATCH_DURATION_MS
-        self.match_start_time = int(time.time() * 1000)
-        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
-        self.current_state = "counting"
+        
 
         self.lights.battle_start()
         self._send_command(1, self.remaining_ms)
+
+        self.match_start_time = int(time.time() * 1000)
+        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
+        self.current_state = "counting"
 
     def pause_match(self):
         if self.current_state != "counting":
