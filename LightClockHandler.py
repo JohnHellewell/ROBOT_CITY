@@ -83,7 +83,7 @@ class LightClockHandler:
         self.remaining_ms = self.get_remaining_time()
         self.current_state = "paused"
         self.lights.pause()
-        self._send_command(2, self.remaining_ms + 6000)
+        self._send_command(2, self.remaining_ms + 5000)
 
     def resume_match(self):
         if self.current_state != "paused":
@@ -94,7 +94,7 @@ class LightClockHandler:
         self.current_state = "counting"
 
         self.lights.battle_start(chase=False)
-        self._send_command(3, self.remaining_ms + 6000)
+        self._send_command(3, self.remaining_ms + 5000)
 
     def add_time(self, new_time_ms):
         self.remaining_ms = new_time_ms
