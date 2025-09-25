@@ -7,7 +7,7 @@ from lighting_control import LightingController
 
 
 class LightClockHandler:
-    def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=9000, on_match_end=None):
+    def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=3000, on_match_end=None):
         # Lights
         self.lights = LightingController()
 
@@ -67,14 +67,14 @@ class LightClockHandler:
             print("Match already started or in progress.")
             return
         self.remaining_ms = self.MATCH_DURATION_MS
-        
+        self.match_start_time = int(time.time() * 1000)
+        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
+        self.current_state = "counting"
 
         self.lights.battle_start()
         self._send_command(1, self.remaining_ms)
 
-        self.match_start_time = int(time.time() * 1000)
-        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
-        self.current_state = "counting"
+        
 
     def pause_match(self):
         if self.current_state != "counting":
