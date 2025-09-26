@@ -91,7 +91,7 @@ class LightingController:
                 self.rgb(r, 0, 0, uv=(255 - r) // 2)
                 time.sleep(delay)
 
-    def wait(self, wait_time=5, fade_out_time = 1):
+    def wait(self, wait_time=5):
         self.stop_wait()
         
         def _wait_loop():

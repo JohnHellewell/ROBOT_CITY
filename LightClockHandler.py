@@ -35,7 +35,7 @@ class LightClockHandler:
         # Start monitoring thread
         threading.Thread(target=self._monitor_timer, daemon=True).start()
 
-        self.lights.wait()  # start the arena in waiting mode immediately (non-blocking)
+        self.lights.wait(wait_time=0)  # start the arena in waiting mode immediately (non-blocking)
 
 
     # --------------------------
