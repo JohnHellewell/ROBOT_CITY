@@ -145,8 +145,9 @@ class LightingController:
 
         self.chase_sequence(r=rgb[0], g=rgb[1], b=rgb[2], white=0, amber=amb)
 
-    def fade_out(self, duration = 1.0):
-        self.stop_wait() #kill anything running
+    def fade_out(self, duration = 1.0, kill = True):
+        if kill:
+            self.stop_wait() #kill anything running
         delay = 0.01
         wait = 0.0
         
@@ -176,7 +177,7 @@ class LightingController:
 
         
         time.sleep(wait) #just a bit of a wait before starting the effects
-        self.fade_out()
+        self.fade_out(kill = False)
 
         for r in range(256):
             if not self.waiting.is_set(): return
