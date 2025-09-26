@@ -97,7 +97,7 @@ class LightingController:
         def _wait_loop():
             self.waiting.set()
             time.sleep(wait_time)
-            self.fade_out()
+            #self.fade_out()
 
             # Fade-in loop
             for r in range(256):
