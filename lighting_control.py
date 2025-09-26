@@ -52,11 +52,11 @@ class LightingController:
 
     # ---------- Safe stop / join ----------
     def stop_wait(self):
-        """Signal current sequence/thread to stop and join it cleanly (short timeout)."""
         self.waiting.clear()
         if self.wait_thread and self.wait_thread.is_alive():
-            self.wait_thread.join(timeout=1.0)
-        self.wait_thread = None
+            if threading.current_thread() != self.wait_thread:
+                self.wait_thread.join(timeout=1)
+            self.wait_thread = None
 
     # ---------- Wait loop (background thread target) ----------
     def _wait_loop(self, wait=5):
@@ -91,12 +91,39 @@ class LightingController:
                 self.rgb(r, 0, 0, uv=(255 - r) // 2)
                 time.sleep(delay)
 
-    def wait(self, wait_seconds=5):
-        """Start the wait loop in a new background thread (replaces any existing)."""
+    def wait(self, wait_time=5):
         self.stop_wait()
-        t = threading.Thread(target=self._wait_loop, args=(wait_seconds,), daemon=True)
-        t.start()
-        self.wait_thread = t
+        def _wait_loop():
+            self.waiting.set()
+            time.sleep(wait_time)
+
+            # Fade-in loop
+            for r in range(256):
+                if not self.waiting.is_set(): return
+                self.rgb(r, 0, 0)
+                time.sleep(0.02)
+
+            # Continuous color cycle
+            while self.waiting.is_set():
+                for g in range(256):
+                    if not self.waiting.is_set(): return
+                    self.rgb(255 - g, g, 0)
+                    time.sleep(0.02)
+                for b in range(256):
+                    if not self.waiting.is_set(): return
+                    self.rgb(0, 255 - b, b)
+                    time.sleep(0.02)
+                for u in range(256):
+                    if not self.waiting.is_set(): return
+                    self.rgb(0, 0, 255 - u, uv=u//2)
+                    time.sleep(0.02)
+                for r in range(256):
+                    if not self.waiting.is_set(): return
+                    self.rgb(r, 0, 0, uv=(255 - r)//2)
+                    time.sleep(0.02)
+
+        self.wait_thread = threading.Thread(target=_wait_loop, daemon=True)
+        self.wait_thread.start()
 
     # ---------- Chase sequence (background) ----------
     def _chase_sequence_blocking(self, r, g, b, white, amber, delay, period, duration):
@@ -144,12 +171,50 @@ class LightingController:
         self.send_dmx(replicate=False)
 
     def chase_sequence(self, r=255, g=255, b=255, white=255, amber=0, delay=0.02, period=0.45, duration=5.0):
+        #"""Run a sine-wave chase effect for a duration."""
         self.stop_wait()
-        t = threading.Thread(target=self._chase_sequence_blocking,
-                             args=(r, g, b, white, amber, delay, period, duration),
-                             daemon=True)
-        t.start()
-        self.wait_thread = t
+        self.data = [0] * 512
+        self.send_dmx(replicate=False)
+        time.sleep(0.05)
+
+        def _chase():
+            self.waiting.set()
+            start_time = time.time()
+            end_time = start_time + duration
+
+            while self.waiting.is_set() and time.time() < end_time:
+                t = time.time() - start_time
+                remaining = end_time - time.time()
+                scale = 1.0
+                if t < 0.5:
+                    scale = t / 0.5
+                elif remaining < 0.5:
+                    scale = remaining / 0.5
+
+                self.data = [0] * 512
+                for light in range(4):
+                    phase = (2 * math.pi * t / period) + (light * math.pi / 2)
+                    sine_val = (math.sin(phase) + 1) / 2
+                    brightness = max(0, (sine_val - 0.5) * 2)
+
+                    offset = light * 8
+                    self.data[offset + 0] = r
+                    self.data[offset + 1] = g
+                    self.data[offset + 2] = b
+                    self.data[offset + 3] = white
+                    self.data[offset + 4] = amber
+                    self.data[offset + 6] = 255
+                    self.data[offset + 7] = int(255 * scale * brightness)
+
+                self.send_dmx(replicate=False)
+                time.sleep(delay)
+
+            # Turn off lights
+            self.data = [0] * 512
+            self.send_dmx(replicate=False)
+
+        self.wait_thread = threading.Thread(target=_chase, daemon=True)
+        self.wait_thread.start()
 
     # ---------- Basic immediate controls ----------
     def rgb(self, r, g, b, white=0, amber=0, uv=0):
@@ -199,11 +264,26 @@ class LightingController:
             self.data[i * 8 + 7] = 255
         self.send_dmx(replicate=False)
 
-    def fade_out(self, duration=1.0, kill=True):
+    def fade_out(self, duration=1.0):
+        """Fade the lights down smoothly, safely stopping any other thread."""
         self.stop_wait()
-        t = threading.Thread(target=self._fade_out_blocking, args=(duration, kill), daemon=True)
-        t.start()
-        self.wait_thread = t
+        delay = 0.01
+        elapsed = 0.0
+
+        while elapsed < duration:
+            scale = 1 - elapsed / duration
+            for i in range(4):
+                self.data[i*8 + 7] = int(255 * scale)
+            self.send_dmx(replicate=False)
+            time.sleep(delay)
+            elapsed += delay
+
+        # Reset lights
+        self.data = [0] * 512
+        for i in range(4):
+            self.data[i*8 + 6] = 255
+            self.data[i*8 + 7] = 255
+        self.send_dmx(replicate=False)
 
     # ---------- Celebrate (non-blocking) ----------
     def celebrate(self, color):
@@ -238,27 +318,26 @@ class LightingController:
         self.wait_thread = t
     
     def battle_start(self, chase=True):
+        """Run a battle countdown with optional chase sequence first."""
         self.stop_wait()
 
         if chase:
-            self.fade_out(duration=1.0)
-            self.chase_sequence(r=255, g=255, b=255, white=255, duration=3)
-            time.sleep(4)  # 3s chase + 1s pause
+            self.fade_out()
+            self.chase_sequence(255, 255, 255, white=255, duration=3)
+            time.sleep(4)  # Allow chase to run
 
-        def _run():
-            self.stop_wait()  # ensure nothing else runs during countdown #used to be stop_all
+        def _countdown():
             self.data = [0] * 512
-            self.data[6] = 255  # strobe channels "armed"
+            self.data[6] = 255
             self.data[7] = 255
-            for _ in range(3):  # red flash 3-2-1
+            for _ in range(3):
                 self.data[0] = 255
                 self.send_dmx()
                 time.sleep(0.5)
                 self.data[0] = 0
                 self.send_dmx()
                 time.sleep(0.5)
-            self.rgb(255, 255, 255, 255)  # full white at "start"
+            self.rgb(255, 255, 255, white=255)
 
-        self.wait_thread = threading.Thread(target=_run, daemon=True)
-        self.wait_thread.start()
+        threading.Thread(target=_countdown, daemon=True).start()
 
