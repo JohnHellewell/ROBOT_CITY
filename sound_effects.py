@@ -56,4 +56,5 @@ class SoundEffects:
         self.play_sound("chase_seq")
     
     def buzzer(self):
+        time.sleep(5)
         self.play_sound("buzzer")
