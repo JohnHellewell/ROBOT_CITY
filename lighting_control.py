@@ -169,13 +169,13 @@ class LightingController:
         self.send_dmx(replicate = False)
             
 
-    def _wait_loop(self):
+    def _wait_loop(self, wait = 5):
         delay = 0.02 #time waiting between updates
 
         self.waiting.set()
 
         
-        time.sleep(5) #just a bit of a wait before starting the effects
+        time.sleep(wait) #just a bit of a wait before starting the effects
         for r in range(256):
             if not self.waiting.is_set(): return
             self.rgb(r, 0, 0)

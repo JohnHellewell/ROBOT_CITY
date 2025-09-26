@@ -83,7 +83,7 @@ class LightClockHandler:
         self.remaining_ms = self.get_remaining_time()
         self.current_state = "paused"
         self.lights.pause()
-        self._send_command(2, self.remaining_ms) # + 5000
+        self._send_command(2, self.remaining_ms + 5000) # + 5000
 
     def resume_match(self):
         if self.current_state != "paused":
@@ -94,7 +94,7 @@ class LightClockHandler:
         self.current_state = "counting"
 
         self.lights.battle_start(chase=False)
-        self._send_command(3, self.remaining_ms) # + 5000
+        self._send_command(3, self.remaining_ms + 5000) # + 5000
 
     def add_time(self, new_time_ms):
         self.remaining_ms = new_time_ms
@@ -107,7 +107,7 @@ class LightClockHandler:
         self.current_state = "waiting"
         self.match_start_time = None
         self.match_end_time = None
-        self._send_command(5, self.remaining_ms) # + 5000
+        self._send_command(5, self.remaining_ms + 5000) # + 5000
         print("Match ended with KO. Returning to waiting state.")
         #self.lights.battle_end(5)
         self.lights.wait()
