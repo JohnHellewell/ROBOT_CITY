@@ -246,7 +246,7 @@ class LightingController:
             time.sleep(4)  # 3s chase + 1s pause
 
         def _run():
-            self.stop_all()  # ensure nothing else runs during countdown
+            self.stop_wait()  # ensure nothing else runs during countdown #used to be stop_all
             self.data = [0] * 512
             self.data[6] = 255  # strobe channels "armed"
             self.data[7] = 255
