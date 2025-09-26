@@ -177,7 +177,28 @@ class LightingController:
 
         
         time.sleep(wait) #just a bit of a wait before starting the effects
-        self.fade_out(kill = False)
+        #self.fade_out(kill = False)
+        duration = 1
+        delay = 0.01
+        wait = 0.0
+        
+        data = self.data[:8*4]
+
+        while wait < duration:
+            for i in range(4):
+                if wait == 0.0:
+                    self.data[i*8+7] = 255
+                else:
+                    self.data[i*8+7] = int(255 - (255 * (wait/duration)))
+            self.send_dmx(replicate = False)
+            time.sleep(delay)
+            wait += delay
+        
+        self.data = [0] * 512 #reset to all 0s except channels 6 & 7
+        for i in range(4):
+            self.data[i*8+6] = 255
+            self.data[i*8+7] = 255
+        self.send_dmx(replicate = False)
 
         for r in range(256):
             if not self.waiting.is_set(): return
