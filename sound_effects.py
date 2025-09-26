@@ -12,6 +12,7 @@ class SoundEffects:
 
         # Preload common sound effects
         self.load_sound("countdown", "3sec_countdown.wav")
+        self.load_sound("chase_seq", "chase_seq.wav")
 
     def load_sound(self, name, filename):
         path = os.path.join(self.sound_folder, filename)
@@ -37,5 +38,8 @@ class SoundEffects:
     # Example effects
     def countdown_3sec(self):
         self.play_sound("countdown")
+    
+    def chase_seq(self):
+        self.play_sound("chase_seq")
 
     

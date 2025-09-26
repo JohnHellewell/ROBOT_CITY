@@ -197,6 +197,7 @@ def break_pair(player_id):
         print(f"{player_id} not paired.")
 
 def start_game():
+    sound_effects.chase_seq()
     light_clock_handler.start_match()
     sound_effects.countdown_3sec()
     time.sleep(3)
