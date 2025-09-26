@@ -235,6 +235,7 @@ class LightingController:
         self.stop_wait()
         self.data = [0] * 512
         self.data[2] = 255  # Blue
+        self.data[5] = 255 # UV
         self.data[6] = 255
         self.data[7] = 255
         self.send_dmx()
