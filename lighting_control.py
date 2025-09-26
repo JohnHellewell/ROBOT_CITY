@@ -236,3 +236,29 @@ class LightingController:
         t = threading.Thread(target=_seq, daemon=True)
         t.start()
         self.wait_thread = t
+    
+    def battle_start(self, chase=True):
+        self.stop_all()
+
+        if chase:
+            self.fade_out(duration=1.0)
+            self.chase_sequence(r=255, g=255, b=255, white=255, duration=3)
+            time.sleep(4)  # 3s chase + 1s pause
+
+        def _run():
+            self.stop_all()  # ensure nothing else runs during countdown
+            self.data = [0] * 512
+            self.data[6] = 255  # strobe channels "armed"
+            self.data[7] = 255
+            for _ in range(3):  # red flash 3-2-1
+                self.data[0] = 255
+                self.send_dmx()
+                time.sleep(0.5)
+                self.data[0] = 0
+                self.send_dmx()
+                time.sleep(0.5)
+            self.rgb(255, 255, 255, 255)  # full white at "start"
+
+        self.wait_thread = threading.Thread(target=_run, daemon=True)
+        self.wait_thread.start()
+
