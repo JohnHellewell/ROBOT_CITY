@@ -225,6 +225,8 @@ class LightingController:
         self.data[3] = white
         self.data[4] = amber
         self.data[5] = uv
+        self.data[6] = 255
+        self.data[7] = 255
         self.send_dmx()
 
     def pause(self):
