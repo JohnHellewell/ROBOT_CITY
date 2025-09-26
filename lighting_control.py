@@ -238,7 +238,7 @@ class LightingController:
         self.wait_thread = t
     
     def battle_start(self, chase=True):
-        self.stop_all()
+        self.stop_wait()
 
         if chase:
             self.fade_out(duration=1.0)
