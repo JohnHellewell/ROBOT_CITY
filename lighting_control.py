@@ -93,11 +93,18 @@ class LightingController:
 
     def wait(self, wait_time=5):
         self.stop_wait()
+
         def _wait_loop():
             self.waiting.set()
+
+            # Initial idle wait
             time.sleep(wait_time)
 
-            # Fade-in loop
+            # Fade out for 1 second (without killing the wait loop)
+            self.fade_out(duration=1.0, kill=False)
+
+            # Now start the full RGB cycle
+            # Fade-in red loop
             for r in range(256):
                 if not self.waiting.is_set(): return
                 self.rgb(r, 0, 0)
@@ -124,6 +131,7 @@ class LightingController:
 
         self.wait_thread = threading.Thread(target=_wait_loop, daemon=True)
         self.wait_thread.start()
+
 
     # ---------- Chase sequence (background) ----------
     def _chase_sequence_blocking(self, r, g, b, white, amber, delay, period, duration):
