@@ -199,10 +199,10 @@ class LightingController:
                 time.sleep(delay)
             
 
-    def wait(self):
+    def wait(self, _wait = 5):
         # Stop any existing loop
         self.stop_wait()
-        self.wait_thread = threading.Thread(target=self._wait_loop, daemon=True)
+        self.wait_thread = threading.Thread(target=self._wait_loop(_wait), daemon=True)
         self.wait_thread.start()
 
     def stop_wait(self):
@@ -211,13 +211,7 @@ class LightingController:
             self.wait_thread.join(timeout=1)
             self.wait_thread = None
     
-    def battle_end(self, delay_s = 0):
-        
-        time.sleep(delay_s)
-        
-        self.stop_wait()
-        self.fade_out()
-        self._wait_loop()
+    
 
 
     def battle_start(self, chase = True):
