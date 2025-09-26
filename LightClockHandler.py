@@ -109,7 +109,8 @@ class LightClockHandler:
         self.match_end_time = None
         self._send_command(5, self.remaining_ms) # + 5000
         print("Match ended with KO. Returning to waiting state.")
-        self.lights.battle_end(5)
+        #self.lights.battle_end(5)
+        self.lights.wait()
 
     def winner(self, winner):
         self.current_state = "waiting"
