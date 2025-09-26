@@ -15,7 +15,7 @@ class SoundEffects:
         # Preload common sound effects
         self.load_sound("countdown", "3sec_countdown.wav")
         self.load_sound("chase_seq", "chase_seq.wav", volume=0.2)        # low volume
-        self.load_sound("buzzer", "buzzer.wav", volume = 0.25)
+        self.load_sound("buzzer", "buzzer.wav", volume = 0.55)
 
     def load_sound(self, name, filename, volume=1.0):
         """Load a sound, convert to mono, and set volume (0.0 → 1.0)."""
