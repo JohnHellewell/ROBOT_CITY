@@ -10,7 +10,6 @@ class LightClockHandler:
     def __init__(self, ip="192.168.8.7", port=50001, match_duration_ms=180000, animation_buffer_ms=3000, on_match_end=None):
         # Lights
         self.lights = LightingController()
-        self.lights.wait()  # start the arena in waiting mode immediately (non-blocking)
 
         # UDP config
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -35,6 +34,8 @@ class LightClockHandler:
 
         # Start monitoring thread
         threading.Thread(target=self._monitor_timer, daemon=True).start()
+
+        self.lights.wait()  # start the arena in waiting mode immediately (non-blocking)
 
 
     # --------------------------
