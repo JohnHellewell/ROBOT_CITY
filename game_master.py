@@ -22,6 +22,7 @@ def timer_stop_game():
     with lock:
         killswitch_value = 0
     print("Game stopped (killswitch=0)")
+    sound_effects.buzzer()
 
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 sound_effects = SoundEffects()
