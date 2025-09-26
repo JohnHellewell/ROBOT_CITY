@@ -176,6 +176,8 @@ class LightingController:
 
         
         time.sleep(wait) #just a bit of a wait before starting the effects
+        self.fade_out()
+
         for r in range(256):
             if not self.waiting.is_set(): return
             self.rgb(r, 0, 0)
