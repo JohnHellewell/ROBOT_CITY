@@ -11,6 +11,7 @@ import db_handler
 from LightClockHandler import LightClockHandler
 import tkinter as tk
 from tkinter import simpledialog, messagebox
+from sound_effects import SoundEffects
 
 
 pygame.init()
@@ -23,6 +24,7 @@ def timer_stop_game():
     print("Game stopped (killswitch=0)")
 
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
+sound_effects = SoundEffects()
 
 CONTROLLER_MAP = {
     "A": 1,
@@ -196,6 +198,7 @@ def break_pair(player_id):
 
 def start_game():
     light_clock_handler.start_match()
+    sound_effects.countdown_3sec()
     time.sleep(3)
     global killswitch_value
     with lock:
