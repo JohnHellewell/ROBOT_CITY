@@ -40,6 +40,7 @@ class SoundEffects:
         self.play_sound("countdown")
     
     def chase_seq(self):
+        time.sleep(1.5)
         self.play_sound("chase_seq")
 
     
