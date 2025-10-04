@@ -431,6 +431,9 @@ if __name__ == "__main__":
     if args.gui:
         # GUI-only mode
         launch_gui()
+        # Redirect stdout/stderr to /dev/null so no console output
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
     else:
         # Terminal + optional GUI (like before)
         print("ROBOT CITY Game Manager")
