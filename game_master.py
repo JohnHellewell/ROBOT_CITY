@@ -319,22 +319,95 @@ class ArenaGUI:
 
         tk.Label(popup, text="Select Pairing to Break:").grid(row=0, column=0, padx=10, pady=10)
 
-        # Build display list for current pairings
         pairing_display = []
         controllers = []
+
+        # Try to fetch full robot list once (used as fallback)
+        robots_cache = None
+        try:
+            if hasattr(db_handler, "get_robot_list"):
+                try:
+                    robots_cache = db_handler.get_robot_list()
+                except TypeError:
+                    # Some implementations expect kwargs; try empty kw
+                    robots_cache = db_handler.get_robot_list(already_connected=[])
+        except Exception:
+            robots_cache = None
+
         for thread in pairings.values():
             player_id = thread.player_id
             bot_id = thread.bot_id
 
-            # ✅ Get robot info using the bot_id
-            robot = db_handler.get_robot_info(bot_id)  # You likely have a function like this
-            # robot should have keys: 'robot_type' and 'color'
+            # Default label if we can't find friendly info
+            robot_label = f"Robot {bot_id}"
 
-            controller_label = REVERSE_MAP[player_id]  # e.g. A, B, C...
-            robot_label = f"{robot['robot_type']} - {robot['color']}"
+            # 1) Prefer a specific lookup function if available
+            try:
+                if hasattr(db_handler, "get_robot_by_id"):
+                    r = db_handler.get_robot_by_id(bot_id)
+                    if r:
+                        if isinstance(r, dict):
+                            robot_label = f"{r.get('robot_type','?')} - {r.get('color','?')}"
+                        elif isinstance(r, (list, tuple)) and len(r) >= 2:
+                            robot_label = f"{r[0]} - {r[1]}"
+                else:
+                    # 2) Try a generic single-robot info call (some DB handlers have get_robot_info)
+                    if hasattr(db_handler, "get_robot_info"):
+                        r = db_handler.get_robot_info(bot_id)
+                        # If this returns a dict-like object with 'robot_type' and 'color'
+                        if isinstance(r, dict) and 'robot_type' in r and 'color' in r:
+                            robot_label = f"{r['robot_type']} - {r['color']}"
+                        # If it's a tuple like (ip, port, inverts, bot_info) try to read bot_info
+                        elif isinstance(r, (list, tuple)) and len(r) >= 4:
+                            bot_info = r[3]
+                            if isinstance(bot_info, (list, tuple)) and len(bot_info) >= 2:
+                                # Some DB layouts may include type/color at front of bot_info
+                                robot_label = f"{bot_info[0]} - {bot_info[1]}"
+            except Exception:
+                # swallow any DB lookup errors; we'll try other fallbacks
+                pass
+
+            # 3) Fallback: search the robot list cache (used by pair_robot_popup)
+            if robot_label.startswith("Robot") and robots_cache:
+                try:
+                    found = None
+                    for rr in robots_cache:
+                        # rr might be dict or tuple; support both
+                        if isinstance(rr, dict) and rr.get('robot_id') == bot_id:
+                            found = rr
+                            break
+                        elif isinstance(rr, (list, tuple)):
+                            # try common positions (last chance)
+                            if len(rr) >= 1 and (rr[0] == bot_id or (len(rr) > 2 and rr[2] == bot_id)):
+                                found = rr
+                                break
+                    if found:
+                        if isinstance(found, dict):
+                            robot_label = f"{found.get('robot_type','?')} - {found.get('color','?')}"
+                        elif isinstance(found, (list, tuple)) and len(found) >= 2:
+                            robot_label = f"{found[0]} - {found[1]}"
+                except Exception:
+                    pass
+
+            # 4) Final fallback: try thread.bot_info if it contains readable values
+            if robot_label.startswith("Robot"):
+                try:
+                    bot_info = getattr(thread, "bot_info", None)
+                    if isinstance(bot_info, (list, tuple)) and len(bot_info) >= 2:
+                        # some legacy code stored (robot_type, color, ...) in bot_info
+                        robot_label = f"{bot_info[0]} - {bot_info[1]}"
+                except Exception:
+                    pass
+
+            controller_label = REVERSE_MAP.get(player_id, f"#{player_id}")
             pairing_display.append(f"Controller {controller_label} → {robot_label}")
             controllers.append(player_id)
 
+        # make sure we have at least one entry (shouldn't happen because we checked pairings earlier)
+        if not pairing_display:
+            messagebox.showinfo("No Active Connections", "There are no active connections to break.")
+            popup.destroy()
+            return
 
         pair_var = tk.StringVar(popup)
         pair_var.set(pairing_display[0])
@@ -350,6 +423,7 @@ class ArenaGUI:
         tk.Button(popup, text="Break", command=on_break,
                 bg="red", fg="white").grid(row=1, column=0, columnspan=2, pady=15)
         popup.grab_set()
+
 
     
     def toggle_pause_resume(self):
