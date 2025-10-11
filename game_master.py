@@ -40,6 +40,8 @@ CONTROLLER_MAP = {
     "H": 1,
 }
 
+REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
+
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
 DEAD_ZONE = 25
@@ -325,7 +327,7 @@ class ArenaGUI:
             bot_id = thread.bot_id
             bot_info = thread.bot_info
             # Show nice text (Controller A–H and bot type/color)
-            controller_label = chr(ord('A') + player_id - 1)
+            controller_label = REVERSE_MAP[player_id]
             robot_label = f"{bot_info[0]} - {bot_info[1]}" if bot_info else f"Robot {bot_id}"
             pairing_display.append(f"Controller {controller_label} → {robot_label}")
             controllers.append(player_id)
@@ -358,8 +360,10 @@ class ArenaGUI:
         # Gather already connected robots and controllers
         already_connected_bots = [thread.bot_id for thread in pairings.values()]
         already_connected_controllers = [thread.player_id for thread in pairings.values()]
-        available_controllers = [chr(ord('A') + i - 1) for i in range(1, 9)
-                                 if i not in already_connected_controllers]
+        available_controllers = [
+            letter for letter, num in CONTROLLER_MAP.items()
+            if num not in already_connected_controllers
+        ]
 
         # Fetch robots from DB
         robots = db_handler.get_robot_list(already_connected=already_connected_bots)
