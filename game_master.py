@@ -30,14 +30,14 @@ light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 sound_effects = SoundEffects()
 
 CONTROLLER_MAP = {
-    "A": 1,
-    "B": 2,
-    "C": 3,
-    "D": 4,
+    "A": 2,
+    "B": 4,
+    "C": 8,
+    "D": 6,
     "E": 5,
-    "F": 6,
-    "G": 7,
-    "H": 8,
+    "F": 8,
+    "G": 3,
+    "H": 1,
 }
 
 MAX_PLAYERS = 4
