@@ -323,14 +323,18 @@ class ArenaGUI:
         pairing_display = []
         controllers = []
         for thread in pairings.values():
-            player_id = thread.player_id  # should already be int (1–8)
+            player_id = thread.player_id
             bot_id = thread.bot_id
-            bot_info = thread.bot_info
-            # Show nice text (Controller A–H and bot type/color)
-            controller_label = REVERSE_MAP[player_id]
-            robot_label = f"{bot_info[0]} - {bot_info[1]}" if bot_info else f"Robot {bot_id}"
+
+            # ✅ Get robot info using the bot_id
+            robot = db_handler.get_robot_info(bot_id)  # You likely have a function like this
+            # robot should have keys: 'robot_type' and 'color'
+
+            controller_label = REVERSE_MAP[player_id]  # e.g. A, B, C...
+            robot_label = f"{robot['robot_type']} - {robot['color']}"
             pairing_display.append(f"Controller {controller_label} → {robot_label}")
             controllers.append(player_id)
+
 
         pair_var = tk.StringVar(popup)
         pair_var.set(pairing_display[0])
