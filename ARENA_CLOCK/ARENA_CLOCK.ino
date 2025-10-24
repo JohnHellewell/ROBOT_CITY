@@ -352,6 +352,7 @@ void executeCommand(uint32_t command, uint32_t time_ms){
   switch (command) {
     case 0: { //reset clock
       current_ms = time_ms;
+      currentState = WAITING;
       break;
     }
     case 1: { //start countdown

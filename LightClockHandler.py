@@ -37,19 +37,21 @@ class LightClockHandler:
 
         self.lights.wait(wait_time=0)  # start the arena in waiting mode immediately (non-blocking)
 
+        self._send_command(0, 0) # if clock was on, cancel it and put it in waiting mode
+
 
     # --------------------------
     # Helper methods
     # --------------------------
     def _send_command(self, command, time_ms):
-        data = struct.pack("!HH", command, time_ms // 100)  # time in deciseconds
+        data = struct.pack("!HH", command, max(0, time_ms) // 100)  # time in deciseconds
         self.sock.sendto(data, (self.ip, self.port))
         print(f"Sent command {command} with time {time_ms} ms")
 
     def _get_elapsed_time(self):
         if self.match_start_time is None:
             return 0
-        elapsed = int(time.time() * 1000) - self.match_start_time - self.ANIMATION_BUFFER_MS
+        elapsed = int(time.time() * 1000) - self.match_start_time
         return max(0, elapsed)
 
     def get_remaining_time(self):
@@ -58,6 +60,17 @@ class LightClockHandler:
             return max(0, self.match_end_time - now)
         else:
             return self.remaining_ms
+        
+    def _begin_counting(self):
+        """Called after animation buffer completes to actually start the countdown."""
+        # mark the actual start
+        self.match_start_time = int(time.time() * 1000)
+        self.match_end_time = self.match_start_time + self.remaining_ms
+        self.current_state = "counting"
+
+        # send the clock the true remaining time (no extra buffer)
+        self._send_command(1, self.remaining_ms)
+        print("Match counting started (after animation buffer).")
 
     # --------------------------
     # Match controls
@@ -66,13 +79,17 @@ class LightClockHandler:
         if self.current_state != "waiting":
             print("Match already started or in progress.")
             return
-        self.remaining_ms = self.MATCH_DURATION_MS
-        self.match_start_time = int(time.time() * 1000)
-        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
-        self.current_state = "counting"
 
+        # reset core timers
+        self.remaining_ms = self.MATCH_DURATION_MS
+        self.current_state = "starting"  # transient state while animation runs
+
+        # start visual pre-match animation immediately
         self.lights.battle_start()
-        self._send_command(1, self.remaining_ms)
+
+        # schedule the actual countdown to begin after the animation buffer
+        threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
+        print(f"Start requested — animation running for {self.ANIMATION_BUFFER_MS} ms.")
 
         
 
@@ -83,33 +100,41 @@ class LightClockHandler:
         self.remaining_ms = self.get_remaining_time()
         self.current_state = "paused"
         self.lights.pause()
-        self._send_command(2, self.remaining_ms + 5000) # + 5000
+        # send pause command with the current true remaining time (no arbitrary +5000)
+        self._send_command(2, self.remaining_ms)
+        print(f"Match paused, {self.remaining_ms} ms remaining.")
 
     def resume_match(self):
         if self.current_state != "paused":
             print("Can only resume from paused state.")
             return
-        self.match_start_time = int(time.time() * 1000)
-        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
-        self.current_state = "counting"
 
+        # Use the same pattern as starting: play a short battle_start animation but don't
+        # change the remaining_ms. If you want no animation on resume, call _begin_counting directly.
+        self.current_state = "starting"
         self.lights.battle_start(chase=False)
-        self._send_command(3, self.remaining_ms + 5000) # + 5000
+
+        # schedule resume after animation buffer
+        threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
+        print(f"Resume requested — animation running for {self.ANIMATION_BUFFER_MS} ms.")
 
     def add_time(self, new_time_ms):
+        # set new remaining, restart countdown now (or you could keep current state paused)
         self.remaining_ms = new_time_ms
+        # restart counting immediately (or you can use the animation buffer pattern)
         self.match_start_time = int(time.time() * 1000)
-        self.match_end_time = self.match_start_time + self.remaining_ms + self.ANIMATION_BUFFER_MS
+        self.match_end_time = self.match_start_time + self.remaining_ms
+        self.current_state = "counting"
         self._send_command(4, self.remaining_ms)
+        print(f"Time added/set to {self.remaining_ms} ms and countdown restarted.")
 
     def ko_match(self):
         self.remaining_ms = self.get_remaining_time()
         self.current_state = "waiting"
         self.match_start_time = None
         self.match_end_time = None
-        self._send_command(5, self.remaining_ms + 5000) # + 5000
+        self._send_command(5, self.remaining_ms)
         print("Match ended with KO. Returning to waiting state.")
-        #self.lights.battle_end(5)
         self.lights.wait(10)
 
     def winner(self, winner):
