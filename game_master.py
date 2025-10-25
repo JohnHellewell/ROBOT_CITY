@@ -32,10 +32,10 @@ sound_effects = SoundEffects()
 CONTROLLER_MAP = {
     "A": 2,
     "B": 4,
-    "C": 8,
+    "C": 7,
     "D": 6,
-    "E": 5,
-    "F": 7,
+    "E": 8,
+    "F": 5,
     "G": 3,
     "H": 1,
 }
