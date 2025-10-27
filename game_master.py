@@ -5,6 +5,8 @@ import threading
 import time
 import platform
 import math
+import string
+import json
 from dotenv import load_dotenv
 import os
 import db_handler
@@ -18,6 +20,8 @@ from sound_effects import SoundEffects
 
 pygame.init()
 pygame.joystick.init()
+
+controller_map_json_path = "controller_map.json"
 
 def timer_stop_game():
     global killswitch_value
@@ -103,6 +107,89 @@ def check_dead_zone(a, b):
 
 def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
+
+def callibrate_controller_order(num_controllers = 8):
+    reset() #break all pairings first
+
+    if pygame.joystick.get_count() < num_controllers:
+        print(f"{num_controllers} controllers expected, only {pygame.joystick.get_count()} found. Operation cancelled")
+        return
+    elif pygame.joystick.get_count() > num_controllers:
+        print(f"{num_controllers} controllers expected, {pygame.joystick.get_count()} found. Only the first {num_controllers} will be counted")
+
+    joysticks = []
+    for i in range(min(num_controllers, pygame.joystick.get_count())):
+        js = pygame.joystick.Joystick(i)
+        js.init()
+        joysticks.append(js)
+    
+    print("\nPress A, B, X, or Y on each controller to set order...\n")
+
+    new_order = []
+    valid_buttons = {0, 1, 2, 3} # A B X Y
+    while len(new_order) < len(joysticks):
+        for event in pygame.event.get():
+            if event.type == pygame.JOYBUTTONDOWN:
+                js_index = event.joy
+                btn = event.button
+
+                if js_index not in new_order and btn in valid_buttons:
+                    new_order.append(js_index + 1)
+                    print(f"Controller {js_index} set as position {len(new_order)}")
+        
+        pygame.time.wait(10) # small delay
+    
+    print("\nFinal order:", new_order)
+    save_controller_map(new_order)
+    load_controller_map()
+
+def save_controller_map(order, filename=controller_map_json_path):
+    """Convert controller order to labeled map (A-H) and save as JSON."""
+    letters = list(string.ascii_uppercase[:len(order)])  # ['A', 'B', 'C', ...]
+    controller_map = {letters[i]: order[i] for i in range(len(order))}
+
+    with open(filename, "w") as f:
+        json.dump(controller_map, f, indent=4)
+
+    print(f"\nController map saved to {filename}:")
+    print(json.dumps(controller_map, indent=4))
+    
+
+def load_controller_map(filename=controller_map_json_path, num_controllers=8):
+    """Load controller map from JSON file or set CONTROLLER_MAP to default."""
+    global CONTROLLER_MAP, REVERSE_MAP
+
+    try:
+        if os.path.exists(filename):
+            with open(filename, "r") as f:
+                data = json.load(f)
+
+            # Validate the loaded data
+            if isinstance(data, dict) and all(
+                k in string.ascii_uppercase for k in data.keys()
+            ):
+                CONTROLLER_MAP = data
+                REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
+                print(f"Loaded controller map from {filename}:")
+                print(json.dumps(CONTROLLER_MAP, indent=4))
+                return
+            else:
+                print(f"Invalid format in {filename}, using default map.")
+        else:
+            print(f"No existing {filename}, using default map.")
+
+    except Exception as e:
+        print(f"Error loading {filename}: {e}")
+        print("Using default map.")
+
+    # Default fallback map (A:0, B:1, ...)
+    letters = list(string.ascii_uppercase[:num_controllers])
+    CONTROLLER_MAP = {letters[i]: i for i in range(len(letters))}
+    REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
+
+
+
+
     
 class RobotControllerThread(threading.Thread):
     def __init__(self, player_id, joystick, ip, port, inverts, bot_info, bot_id):
@@ -503,6 +590,8 @@ if __name__ == "__main__":
                     pause_game()
                 elif cmd == "resume":
                     resume_game()
+                elif cmd == "controller cal":
+                    callibrate_controller_order()
                 elif cmd == "exit":
                     reset()
                     break
@@ -511,6 +600,7 @@ if __name__ == "__main__":
                     print("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
                     print("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
                     print("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
+                    print("\tCallibration: | Controller Cal |")
                 else:
                     print("Unknown command.")
         except KeyboardInterrupt:
