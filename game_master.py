@@ -134,10 +134,13 @@ def callibrate_controller_order(num_controllers = 8):
                 btn = event.button
 
                 if js_index not in new_order and btn in valid_buttons:
-                    new_order.append(js_index + 1)
-                    print(f"Controller {js_index} set as position {len(new_order)}")
+                    new_order.append(js_index)
+                    print(f"Controller {js_index + 1} set as position {len(new_order)}")
         
         pygame.time.wait(10) # small delay
+    
+    for i in range(len(new_order)):
+        new_order[i] += 1
     
     print("\nFinal order:", new_order)
     save_controller_map(new_order)
