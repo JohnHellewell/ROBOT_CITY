@@ -317,12 +317,6 @@ class ArenaGUI:
         popup = tk.Toplevel()
         popup.title("Break Pair")
 
-        # auto-close if clicked away
-        popup.bind("<FocusOut>", lambda e: popup.destroy())
-
-        # ensure X button closes properly
-        popup.protocol("WM_DELETE_WINDOW", popup.destroy)
-
         tk.Label(popup, text="Select Pairing to Break:").grid(row=0, column=0, padx=10, pady=10)
 
         pairing_display = []
@@ -399,11 +393,7 @@ class ArenaGUI:
         popup = tk.Toplevel()
         popup.title("Pair Robot")
 
-        # auto-close if clicked away
-        popup.bind("<FocusOut>", lambda e: popup.destroy())
-
-        # ensure X button closes properly
-        popup.protocol("WM_DELETE_WINDOW", popup.destroy)
+        
 
         tk.Label(popup, text="Select Controller:").grid(row=0, column=0, padx=10, pady=10)
         controller_var = tk.StringVar(popup)
