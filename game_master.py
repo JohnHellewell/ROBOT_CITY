@@ -1,3 +1,6 @@
+#example desktop shortcut
+#Exec=env GTK_IM_MODULE=xim XDG_SESSION_TYPE=x11 XMODIFIERS= /usr/bin/python3 /home/john/ROBOT_CITY/game_master.py -gui
+
 import pygame
 import socket
 import struct
@@ -395,7 +398,7 @@ class ArenaGUI:
 
         # --- New calibration button ---
         self.calibrate_btn = tk.Button(root, text="CALIBRATE\nCONTROLLERS", font=("Arial", 20, "bold"),
-                                    bg="orange", fg="black", command=self.calibrate_controllers, wraplength=400)
+                                    bg="blue", fg="black", command=self.calibrate_controllers, wraplength=400)
         self.calibrate_btn.grid(row=0, column=1, sticky="nsew")
 
         # --- Existing STOP button (hidden by default) ---
