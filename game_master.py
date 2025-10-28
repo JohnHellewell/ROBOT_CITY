@@ -607,71 +607,67 @@ if __name__ == "__main__":
         sys.stdout = open(os.devnull, "w")
         sys.stderr = open(os.devnull, "w")
     else:
-        # Terminal + optional GUI (like before)
         print("ROBOT CITY Game Manager")
         print("Type 'help' for a list of commands.")
 
-        # Launch GUI in background thread
-        gui_thread = threading.Thread(target=launch_gui, daemon=True)
-        gui_thread.start()
-
-        try:
-            while True:
-                cmd = input("Command: ").strip().lower()
-                if cmd.startswith("pair"):
-                    parts = cmd.split()
-                    if len(parts) == 3:
-                        _, player_id, robot_id = parts
-                        pair(int(player_id), robot_id)
+        # Run terminal loop in a background thread
+        def terminal_loop():
+            try:
+                while True:
+                    cmd = input("Command: ").strip().lower()
+                    if cmd.startswith("pair"):
+                        parts = cmd.split()
+                        if len(parts) == 3:
+                            _, player_id, robot_id = parts
+                            pair(int(player_id), robot_id)
+                        else:
+                            print("Usage: pair playerX robot_id")
+                    elif cmd.startswith("break"):
+                        parts = cmd.split()
+                        if len(parts) == 2:
+                            _, player_id = parts
+                            break_pair(int(player_id))
+                        else:
+                            print("Usage: break playerX")
+                    elif cmd == "start":
+                        start_game()
+                    elif cmd == "stop":
+                        stop_game()
+                    elif cmd == "reset":
+                        reset()
+                    elif cmd == "show pairings":
+                        show_pairings()
+                    elif cmd == "add robot":
+                        db_handler.add_robot()
+                    elif cmd == "remove robot":
+                        db_handler.remove_robot()
+                    elif cmd == "edit robot":
+                        db_handler.edit_robot()
+                    elif cmd == "show robots":
+                        db_handler.show_robots()
+                    elif cmd == "show types":
+                        db_handler.show_types()
+                    elif cmd == "edit type":
+                        db_handler.edit_type()
+                    elif cmd == "pause":
+                        pause_game()
+                    elif cmd == "resume":
+                        resume_game()
+                    elif cmd == "controller cal":
+                        calibrate_controller_order()
+                    elif cmd == "exit":
+                        reset()
+                        cleanup_and_exit()
+                    elif cmd == "help":
+                        print("Commands:")
+                        print("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
+                        print("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
+                        print("\tRobot Type Settings: | show types | edit type |")
+                        print("\tCalibration: | Controller Cal |")
                     else:
-                        print("Usage: pair playerX robot_id")
-                elif cmd.startswith("break"):
-                    parts = cmd.split()
-                    if len(parts) == 2:
-                        _, player_id = parts
-                        break_pair(int(player_id))
-                    else:
-                        print("Usage: break playerX")
-                elif cmd == "start":
-                    start_game()
-                elif cmd == "stop":
-                    stop_game()
-                elif cmd == "reset":
-                    reset()
-                elif cmd == "show pairings":
-                    show_pairings()
-                elif cmd == "add robot":
-                    db_handler.add_robot()
-                elif cmd == "remove robot":
-                    db_handler.remove_robot()
-                elif cmd == "edit robot":
-                    db_handler.edit_robot()
-                elif cmd == "show robots":
-                    db_handler.show_robots()
-                elif cmd == "show types":
-                    db_handler.show_types()
-                elif cmd == "edit type":
-                    db_handler.edit_type()
-                elif cmd == "pause":
-                    pause_game()
-                elif cmd == "resume":
-                    resume_game()
-                elif cmd == "controller cal":
-                    calibrate_controller_order()
-                elif cmd == "exit":
-                    reset()
-                    break
-                elif cmd == "help":
-                    print("Commands:")
-                    print("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
-                    print("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
-                    print("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
-                    print("\tCalibration: | Controller Cal |")
-                else:
-                    print("Unknown command.")
-        except KeyboardInterrupt:
-            cleanup_and_exit()
-        finally:
-            pygame.quit()
+                        print("Unknown command.")
+            except KeyboardInterrupt:
+                cleanup_and_exit()
 
-
+        threading.Thread(target=terminal_loop, daemon=True).start()
+        launch_gui()  # Tkinter runs in the main thread
