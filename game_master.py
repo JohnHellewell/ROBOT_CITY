@@ -394,8 +394,8 @@ class ArenaGUI:
         self.start_btn.grid(row=0, column=0, sticky="nsew")
 
         # --- New calibration button ---
-        self.calibrate_btn = tk.Button(root, text="CALIBRATE CONTROLLERS", font=("Arial", 36),
-                                    bg="orange", fg="black", command=self.calibrate_controllers)
+        self.calibrate_btn = tk.Button(root, text="CALIBRATE CONTROLLERS", font=("Arial", 28, "bold"),
+                                    bg="orange", fg="black", command=self.calibrate_controllers, wraplength=400)
         self.calibrate_btn.grid(row=0, column=1, sticky="nsew")
 
         # --- Existing STOP button (hidden by default) ---
