@@ -119,6 +119,7 @@ class LightClockHandler:
         # Use the same pattern as starting: play a short battle_start animation but don't
         # change the remaining_ms. If you want no animation on resume, call _begin_counting directly.
         self.current_state = "starting"
+        self._send_command(3, self.remaining_ms)
         self.lights.battle_start(chase=False)
 
         # schedule resume after animation buffer
