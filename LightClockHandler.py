@@ -77,21 +77,24 @@ class LightClockHandler:
     # --------------------------
     # Match controls
     # --------------------------
+    # start_match() modification
     def start_match(self):
         if self.current_state != "waiting":
             print("Match already started or in progress.")
             return
 
-        # reset core timers
         self.remaining_ms = self.MATCH_DURATION_MS
-        self.current_state = "starting"  # transient state while animation runs
+        self.current_state = "starting"
 
-        # start visual pre-match animation immediately
+        # Immediately tell clock to start the 3 sec countdown
+        self._send_command(1, self.MATCH_DURATION_MS + self.ANIMATION_BUFFER_MS)
+
+        # Start lights animation
         self.lights.battle_start()
 
-        # schedule the actual countdown to begin after the animation buffer
+        # Schedule real match start internally (for internal timing and robot killswitch)
         threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
-        print(f"Start requested — animation running for {self.ANIMATION_BUFFER_MS} ms.")
+
 
         
 
