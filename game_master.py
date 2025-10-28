@@ -577,31 +577,12 @@ class ArenaGUI:
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, lambda sig, frame: cleanup_and_exit())
     parser = argparse.ArgumentParser(description="ROBOT CITY Game Manager")
-    parser.add_argument("-gui", action="store_true", help="Run in GUI mode only (no terminal text UI)")
+    parser.add_argument("-gui", action="store_true", help="Run in GUI-only mode (no terminal)")
     args = parser.parse_args()
 
     load_controller_map()
 
-    if args.gui:
-        # GUI-only mode
-        root = tk.Tk()
-        gui = ArenaGUI(
-            root,
-            start_fn=start_game,
-            stop_fn=stop_game,
-            pause_fn=pause_game,
-            resume_fn=resume_game,
-            pair_fn=pair,
-            break_fn=break_pair,
-            reset_fn=reset,
-            controller_cal_fn=calibrate_controller_order
-        )
-        root.mainloop()  # Tkinter runs in main thread
-    else:
-        # Terminal-only mode
-        print("ROBOT CITY Game Manager (terminal mode)")
-        print("Type 'help' for a list of commands.")
-
+    def launch_terminal_loop():
         try:
             while True:
                 cmd = input("Command: ").strip().lower()
@@ -658,4 +639,29 @@ if __name__ == "__main__":
                     print("Unknown command.")
         except KeyboardInterrupt:
             cleanup_and_exit()
+
+    # --- Tkinter GUI setup ---
+    root = tk.Tk()
+    gui = ArenaGUI(
+        root,
+        start_fn=start_game,
+        stop_fn=stop_game,
+        pause_fn=pause_game,
+        resume_fn=resume_game,
+        pair_fn=pair,
+        break_fn=break_pair,
+        reset_fn=reset,
+        controller_cal_fn=calibrate_controller_order
+    )
+
+    if args.gui:
+        # GUI-only: suppress terminal output
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
+    else:
+        # Terminal + GUI: start terminal loop in background thread
+        threading.Thread(target=launch_terminal_loop, daemon=True).start()
+
+    # Tkinter must always run in main thread
+    root.mainloop()
 
