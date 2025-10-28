@@ -64,13 +64,12 @@ class LightClockHandler:
             return self.remaining_ms
         
     def _begin_counting(self):
+        # only update internal Python timers, no need to touch the clock
         self.match_start_time = int(time.time() * 1000)
         self.match_end_time = self.match_start_time + self.remaining_ms
         self.current_state = "counting"
+        print("Match counting started (internal timer only).")
 
-        # Tell clock to start countdown **3 sec in advance** for its 3-2-1 animation
-        self._send_command(1, self.remaining_ms + self.ANIMATION_BUFFER_MS)
-        print("Match counting started (clock 3 sec pre-start included).")
 
 
     # --------------------------
@@ -82,15 +81,20 @@ class LightClockHandler:
             print("Match already started or in progress.")
             return
 
+        # reset timers
         self.remaining_ms = self.MATCH_DURATION_MS
         self.current_state = "starting"
 
-        # Start lights animation immediately
+        # start lights animation immediately
         self.lights.battle_start()
 
-        # Schedule _begin_counting to run after animation buffer
+        # tell the clock to start in 3 sec (animation buffer)
+        self._send_command(1, self.remaining_ms + self.ANIMATION_BUFFER_MS)
+
+        # schedule internal match timer start after animation
         threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
-        print(f"Start requested — animation running for {self.ANIMATION_BUFFER_MS} ms.")
+        print(f"Start requested — lights animation running for {self.ANIMATION_BUFFER_MS} ms.")
+
 
 
 
