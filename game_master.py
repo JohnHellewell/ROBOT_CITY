@@ -109,7 +109,7 @@ def check_dead_zone(a, b):
 def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
 
-def callibrate_controller_order(num_controllers = 8):
+def calibrate_controller_order(num_controllers = 8):
     reset() #break all pairings first
 
     if pygame.joystick.get_count() < num_controllers:
@@ -596,7 +596,8 @@ if __name__ == "__main__":
             resume_fn=resume_game,
             pair_fn=pair,
             break_fn=break_pair,
-            reset_fn=reset
+            reset_fn=reset,
+            controller_cal_fn=calibrate_controller_order
         )
         root.mainloop()
 
@@ -657,7 +658,7 @@ if __name__ == "__main__":
                 elif cmd == "resume":
                     resume_game()
                 elif cmd == "controller cal":
-                    callibrate_controller_order()
+                    calibrate_controller_order()
                 elif cmd == "exit":
                     reset()
                     break
@@ -666,7 +667,7 @@ if __name__ == "__main__":
                     print("\tGameplay: | pair playerX robot_id | break playerX | start | stop | reset | show pairings | exit |")
                     print("\tIndividual Robot Settings: | show robots | add robot | edit robot | remove robot |")
                     print("\tRobot Type Settings (edit all robots of a certain type): | show types | edit type | ")
-                    print("\tCallibration: | Controller Cal |")
+                    print("\tCalibration: | Controller Cal |")
                 else:
                     print("Unknown command.")
         except KeyboardInterrupt:
