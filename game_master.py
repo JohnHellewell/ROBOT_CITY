@@ -349,13 +349,15 @@ def cleanup_and_exit():
         light_clock_handler.exit()
     except Exception as e:
         print(f"Error during cleanup: {e}")
-    try:
-        # Close the Tkinter window safely (if it exists)
-        if tk._default_root is not None:
-            tk._default_root.destroy()
-    except Exception:
-        pass
-    sys.exit(0)
+    finally:
+        try:
+            # Safely destroy the Tkinter window if it exists
+            if tk._default_root is not None:
+                tk._default_root.destroy()
+        except Exception:
+            pass
+        # Forcefully terminate the process
+        os._exit(0)
 
 
 class ArenaGUI:
