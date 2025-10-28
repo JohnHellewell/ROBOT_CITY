@@ -34,14 +34,14 @@ light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 sound_effects = SoundEffects()
 
 CONTROLLER_MAP = {
-    "A": 2,
-    "B": 4,
-    "C": 7,
-    "D": 6,
-    "E": 8,
-    "F": 5,
-    "G": 3,
-    "H": 1,
+    "A": 1,
+    "B": 2,
+    "C": 3,
+    "D": 4,
+    "E": 5,
+    "F": 6,
+    "G": 7,
+    "H": 8,
 }
 
 REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
@@ -522,6 +522,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ROBOT CITY Game Manager")
     parser.add_argument("-gui", action="store_true", help="Run in GUI mode only (no terminal text UI)")
     args = parser.parse_args()
+
+    load_controller_map()
 
     def launch_gui():
         root = tk.Tk()
