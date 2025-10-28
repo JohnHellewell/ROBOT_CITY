@@ -293,6 +293,7 @@ def break_pair(player_id):
         print(f"{player_id} not paired.")
 
 def start_game():
+    ArenaGUI.show_stop_button()
     sound_effects.chase_seq()
     light_clock_handler.start_match()
     sound_effects.countdown_3sec()
@@ -361,7 +362,7 @@ def cleanup_and_exit():
 
 
 class ArenaGUI:
-    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn, break_fn, reset_fn):
+    def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn, break_fn, reset_fn, controller_cal_fn):
         self.start_fn = start_fn
         self.stop_fn = stop_fn
         self.pause_fn = pause_fn
@@ -369,6 +370,7 @@ class ArenaGUI:
         self.pair_fn = pair_fn
         self.break_fn = break_fn
         self.reset_fn = reset_fn
+        self.controller_cal_fn = controller_cal_fn
 
         self.root = root
         self.root.title("Robot Arena Control")
@@ -389,20 +391,27 @@ class ArenaGUI:
 
         # Top buttons
         self.start_btn = tk.Button(root, text="START", font=("Arial", 36),
-                                   bg="green", fg="white", command=self.start_fn)
+                                    bg="green", fg="white", command=self.on_start)
         self.start_btn.grid(row=0, column=0, sticky="nsew")
 
+        # --- New calibration button ---
+        self.calibrate_btn = tk.Button(root, text="CALIBRATE CONTROLLERS", font=("Arial", 36),
+                                    bg="orange", fg="black", command=self.calibrate_controllers)
+        self.calibrate_btn.grid(row=0, column=1, sticky="nsew")
+
+        # --- Existing STOP button (hidden by default) ---
         self.stop_btn = tk.Button(root, text="STOP", font=("Arial", 36),
-                                  bg="red", fg="white", command=self.stop_fn)
+                                    bg="red", fg="white", command=self.on_stop)
         self.stop_btn.grid(row=0, column=1, sticky="nsew")
+        self.stop_btn.grid_remove()  # Hide STOP until a match starts
 
         self.pause_btn = tk.Button(root, text="PAUSE", font=("Arial", 36),
-                                   bg="orange", fg="black", command=self.toggle_pause_resume)
+                                    bg="orange", fg="black", command=self.toggle_pause_resume)
         self.pause_btn.grid(row=1, column=0, columnspan=2, sticky="nsew")
 
         # Bottom row: Pair / Break / Reset
         self.pair_btn = tk.Button(root, text="PAIR ROBOT", font=("Arial", 24),
-                                  bg="purple", fg="white", command=self.pair_robot_popup)
+                                    bg="purple", fg="white", command=self.pair_robot_popup)
         self.pair_btn.grid(row=3, column=0, sticky="nsew")
 
         self.break_btn = tk.Button(root, text="BREAK PAIR", font=("Arial", 24),
@@ -416,6 +425,27 @@ class ArenaGUI:
         # Expand grid to 3 columns for bottom row
         self.root.grid_columnconfigure(2, weight=1)
 
+    def on_stop(self, event=None):
+        self.show_calibrate_button()
+        self.stop_fn()
+    
+    def on_start(self, event=None):
+        self.show_stop_button()
+        self.start_fn()
+    
+    def calibrate_controllers(self, event=None):
+        messagebox.showinfo(
+            "Controller Calibration",
+            "Press any [A B X Y] button on each controller from A to H. This will set the order.\n\n"
+            "Make sure all controllers are plugged in before continuing."
+        )
+
+        try:
+            self.controller_cal_fn()
+            messagebox.showinfo("Calibration Complete", "Controllers calibrated successfully.")
+        except Exception as e:
+            messagebox.showerror("Calibration Failed", f"An error occurred:\n{e}")
+    
     def reset_all_popup(self, event=None):
         """Popup confirmation when reset is triggered."""
         self.reset_fn()  # Call your actual reset function
@@ -480,6 +510,14 @@ class ArenaGUI:
         else:
             self.resume_fn()
             self.pause_btn.config(text="PAUSE", bg="orange", fg="black")
+    
+    def show_calibrate_button(self):
+        self.stop_btn.grid_remove()
+        self.calibrate_btn.grid()
+
+    def show_stop_button(self):
+        self.calibrate_btn.grid_remove()
+        self.stop_btn.grid()
 
     def pair_robot_popup(self, event=None):
         # Gather already connected robots and controllers
