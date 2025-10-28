@@ -340,7 +340,15 @@ def show_pairings():
         print(f"{player} -> {thread.ip}:{thread.port}")
 
 
-
+def cleanup_and_exit():
+    print("Cleaning up before exit...")
+    try:
+        reset()
+        pygame.quit()
+        light_clock_handler.exit()
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+    sys.exit(0)
 
 class ArenaGUI:
     def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn, break_fn, reset_fn):
@@ -364,6 +372,10 @@ class ArenaGUI:
         # Grid config (4 rows, 2 cols)
         self.root.grid_rowconfigure((0, 1, 2, 3), weight=1)
         self.root.grid_columnconfigure((0, 1), weight=1)
+
+        # exit protocol
+        self.root.protocol("WM_DELETE_WINDOW", cleanup_and_exit)
+
 
         # Top buttons
         self.start_btn = tk.Button(root, text="START", font=("Arial", 36),
@@ -609,8 +621,7 @@ if __name__ == "__main__":
                 else:
                     print("Unknown command.")
         except KeyboardInterrupt:
-            print("\nExiting...")
-            reset()
+            cleanup_and_exit()
         finally:
             pygame.quit()
 
