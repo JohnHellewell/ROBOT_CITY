@@ -12,6 +12,7 @@ import os
 import db_handler
 import argparse
 import sys
+import signal
 from LightClockHandler import LightClockHandler
 import tkinter as tk
 from tkinter import simpledialog, messagebox
@@ -348,7 +349,14 @@ def cleanup_and_exit():
         light_clock_handler.exit()
     except Exception as e:
         print(f"Error during cleanup: {e}")
+    try:
+        # Close the Tkinter window safely (if it exists)
+        if tk._default_root is not None:
+            tk._default_root.destroy()
+    except Exception:
+        pass
     sys.exit(0)
+
 
 class ArenaGUI:
     def __init__(self, root, start_fn, stop_fn, pause_fn, resume_fn, pair_fn, break_fn, reset_fn):
@@ -531,6 +539,7 @@ class ArenaGUI:
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, lambda sig, frame: cleanup_and_exit())
     parser = argparse.ArgumentParser(description="ROBOT CITY Game Manager")
     parser.add_argument("-gui", action="store_true", help="Run in GUI mode only (no terminal text UI)")
     args = parser.parse_args()
