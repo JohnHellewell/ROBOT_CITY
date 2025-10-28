@@ -64,15 +64,14 @@ class LightClockHandler:
             return self.remaining_ms
         
     def _begin_counting(self):
-        """Called after animation buffer completes to actually start the countdown."""
-        # mark the actual start
         self.match_start_time = int(time.time() * 1000)
         self.match_end_time = self.match_start_time + self.remaining_ms
         self.current_state = "counting"
 
-        # send the clock the true remaining time (no extra buffer)
-        self._send_command(1, self.remaining_ms)
-        print("Match counting started (after animation buffer).")
+        # Tell clock to start countdown **3 sec in advance** for its 3-2-1 animation
+        self._send_command(1, self.remaining_ms + self.ANIMATION_BUFFER_MS)
+        print("Match counting started (clock 3 sec pre-start included).")
+
 
     # --------------------------
     # Match controls
@@ -86,14 +85,13 @@ class LightClockHandler:
         self.remaining_ms = self.MATCH_DURATION_MS
         self.current_state = "starting"
 
-        # Immediately tell clock to start the 3 sec countdown
-        self._send_command(1, self.MATCH_DURATION_MS + self.ANIMATION_BUFFER_MS)
-
-        # Start lights animation
+        # Start lights animation immediately
         self.lights.battle_start()
 
-        # Schedule real match start internally (for internal timing and robot killswitch)
+        # Schedule _begin_counting to run after animation buffer
         threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
+        print(f"Start requested — animation running for {self.ANIMATION_BUFFER_MS} ms.")
+
 
 
         
