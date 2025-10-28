@@ -39,10 +39,9 @@ class LightClockHandler:
 
         self._send_command(0, 0) # if clock was on, cancel it and put it in waiting mode
 
-    def exit(self):
-        self._send_command(0, 0)
+    
 
-        
+
     # --------------------------
     # Helper methods
     # --------------------------
@@ -168,3 +167,4 @@ class LightClockHandler:
         self._stop_event.set()
         self.lights.off()
         self.sock.close()
+        self._send_command(0, 0)

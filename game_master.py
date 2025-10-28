@@ -346,7 +346,7 @@ def cleanup_and_exit():
     try:
         reset()
         pygame.quit()
-        light_clock_handler.exit()
+        light_clock_handler.stop()
     except Exception as e:
         print(f"Error during cleanup: {e}")
     finally:
