@@ -221,7 +221,7 @@ class RobotControllerThread(threading.Thread):
 
             raw_ch1 = self.joystick.get_axis(AXIS_X)
             raw_ch2 = self.joystick.get_axis(AXIS_Y)
-            raw_ch3 = self.joystick.get_axis(max(AXIS_LEFT_TRIGGER, AXIS_RIGHT_TRIGGER))
+            raw_ch3 = max(self.joystick.get_axis(AXIS_LEFT_TRIGGER), self.joystick.get_axis(AXIS_RIGHT_TRIGGER) )
             #raw_ch4 = self.joystick.get_axis(AXIS_LEFT_TRIGGER)
 
             if(self.inverts[3]): #swap steer and for/back channels
