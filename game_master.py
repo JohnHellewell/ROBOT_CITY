@@ -62,13 +62,13 @@ lock = threading.Lock()
 
 # Platform dependent axis mapping for right stick and triggers
 if platform.system() == "Linux":
-    AXIS_RIGHT_X = 3
-    AXIS_RIGHT_Y = 1
-    AXIS_LEFT_TRIGGER = 2
-    AXIS_RIGHT_TRIGGER = 5
+    AXIS_X = 3 #3
+    AXIS_Y = 1 #1
+    AXIS_LEFT_TRIGGER = 2 #2
+    AXIS_RIGHT_TRIGGER = 5 #5
 else:
-    AXIS_RIGHT_X = 2
-    AXIS_RIGHT_Y = 3
+    AXIS_X = 2
+    AXIS_Y = 3
     AXIS_LEFT_TRIGGER = 4
     AXIS_RIGHT_TRIGGER = 5
 
@@ -219,9 +219,9 @@ class RobotControllerThread(threading.Thread):
         while self.running:
             pygame.event.pump()
 
-            raw_ch1 = self.joystick.get_axis(AXIS_RIGHT_X)
-            raw_ch2 = self.joystick.get_axis(AXIS_RIGHT_Y)
-            raw_ch3 = self.joystick.get_axis(AXIS_RIGHT_TRIGGER)
+            raw_ch1 = self.joystick.get_axis(AXIS_X)
+            raw_ch2 = self.joystick.get_axis(AXIS_Y)
+            raw_ch3 = self.joystick.get_axis(max(AXIS_LEFT_TRIGGER, AXIS_RIGHT_TRIGGER))
             #raw_ch4 = self.joystick.get_axis(AXIS_LEFT_TRIGGER)
 
             if(self.inverts[3]): #swap steer and for/back channels
