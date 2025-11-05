@@ -113,91 +113,121 @@ def check_dead_zone(a, b):
 def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
 
-def calibrate_controller_order(num_controllers=8):
-    """Calibrate controller order by unique GUID instead of joystick index."""
-    reset()
+def list_controllers_by_serial():
+    """Return a list of tuples: (serial_id, js_index, name) for each connected joystick."""
+    controllers = []
+    js_count = pygame.joystick.get_count()
+    base_path = "/dev/input/by-id/"
+    if not os.path.exists(base_path):
+        raise RuntimeError(f"{base_path} does not exist. Are you on Linux?")
+    
+    for i in range(js_count):
+        js = pygame.joystick.Joystick(i)
+        js.init()
+        name = js.get_name()
+        serial = None
+        # Try to find matching serial in /dev/input/by-id
+        for entry in os.listdir(base_path):
+            if entry.endswith("-joystick") and name.replace(" ", "") in entry.replace("_", ""):
+                serial = entry.split('_')[-1].replace('-joystick', '')
+                break
+        controllers.append((serial, i, name))
+    return controllers
 
+def calibrate_controller_order():
+    """
+    Assign controllers A-H using serial identifiers instead of js index.
+    Only needs to be run once unless a controller is replaced.
+    """
+    reset()  # clear existing pairings first
     pygame.joystick.quit()
     pygame.joystick.init()
 
-    count = pygame.joystick.get_count()
-    if count < num_controllers:
-        print(f"Expected {num_controllers} controllers, but found {count}.")
+    controllers = list_controllers_by_serial()
+    if not controllers:
+        print("No controllers detected.")
         return
-    elif count > num_controllers:
-        print(f"Found {count} controllers, but only first {num_controllers} will be calibrated.")
 
-    joysticks = [pygame.joystick.Joystick(i) for i in range(count)]
-    for js in joysticks:
-        js.init()
-        print(f"[{js.get_id()}] {js.get_name()} | GUID={js.get_guid()}")
+    print("\nDetected controllers:")
+    for idx, (serial, js_index, name) in enumerate(controllers):
+        print(f"[{js_index}] {name} | Serial={serial}")
 
-    print("\nPress A, B, X, or Y on each controller from A → H order...")
+    letters = list(string.ascii_uppercase[:len(controllers)])
+    mapping = {}
+    assigned_serials = set()
 
-    valid_buttons = {0, 1, 2, 3}
-    new_order = []
+    print("\nPress A, B, X, or Y on each controller to assign A-H order...")
 
-    while len(new_order) < min(num_controllers, count):
+    while len(mapping) < len(controllers):
         for event in pygame.event.get():
-            if event.type == pygame.JOYBUTTONDOWN and event.button in valid_buttons:
+            if event.type == pygame.JOYBUTTONDOWN:
                 js_index = event.joy
-                js = pygame.joystick.Joystick(js_index)
-                guid = js.get_guid()
-                if guid not in new_order:
-                    new_order.append(guid)
-                    print(f"Controller {len(new_order)} set as {string.ascii_uppercase[len(new_order)-1]} ({js.get_name()})")
-
+                btn = event.button
+                # Only A/B/X/Y (0-3)
+                if btn not in {0, 1, 2, 3}:
+                    continue
+                # Get serial of pressed joystick
+                serial = None
+                for s, i, name in controllers:
+                    if i == js_index:
+                        serial = s
+                        break
+                if serial and serial not in assigned_serials:
+                    letter = letters[len(mapping)]
+                    mapping[letter] = serial
+                    assigned_serials.add(serial)
+                    print(f"Controller {js_index} assigned as {letter} (Serial {serial})")
         pygame.time.wait(10)
 
-    save_controller_map(new_order)
+    save_controller_map(mapping)
     load_controller_map()
+    print("\nController calibration complete.")
 
-def save_controller_map(guid_order, filename=controller_map_json_path):
-    """Save mapping of letter (A–H) to joystick GUID."""
-    letters = list(string.ascii_uppercase[:len(guid_order)])
-    controller_map = {letters[i]: guid_order[i] for i in range(len(guid_order))}
-
+def save_controller_map(mapping, filename=controller_map_json_path):
+    """Save letter → serial mapping as JSON."""
     with open(filename, "w") as f:
-        json.dump(controller_map, f, indent=4)
-
-    print(f"\nController GUID map saved to {filename}:")
-    print(json.dumps(controller_map, indent=4))
+        json.dump(mapping, f, indent=4)
+    print(f"\nController map saved to {filename}:")
+    print(json.dumps(mapping, indent=4))
     
 
 def load_controller_map(filename=controller_map_json_path, num_controllers=8):
-    """Load controller GUID map and dynamically reassign joystick indices."""
+    """
+    Load controller map from JSON.
+    Resolves serial → current joystick index in pygame.
+    """
     global CONTROLLER_MAP, REVERSE_MAP
 
     pygame.joystick.quit()
     pygame.joystick.init()
 
-    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
-    for js in joysticks:
-        js.init()
-
+    # Start with default mapping if file doesn't exist
     if not os.path.exists(filename):
-        print(f"No controller map found, using default mapping.")
-        CONTROLLER_MAP = {string.ascii_uppercase[i]: i + 1 for i in range(num_controllers)}
-        REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
+        print(f"No controller map found, using default A=0, B=1...")
+        letters = list(string.ascii_uppercase[:pygame.joystick.get_count()])
+        CONTROLLER_MAP = {letters[i]: i for i in range(len(letters))}
+        REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
         return
 
     with open(filename, "r") as f:
-        guid_map = json.load(f)
+        mapping = json.load(f)
+
+    # Map serial → current joystick index
+    serial_to_index = {}
+    controllers = list_controllers_by_serial()
+    for serial, js_index, _name in controllers:
+        if serial:
+            serial_to_index[serial] = js_index
 
     CONTROLLER_MAP = {}
-    REVERSE_MAP = {}
-
-    for letter, guid in guid_map.items():
-        match = next((js for js in joysticks if js.get_guid() == guid), None)
-        if match:
-            CONTROLLER_MAP[letter] = match.get_id() + 1  # +1 to keep your 1-based numbering
+    for letter, serial in mapping.items():
+        if serial in serial_to_index:
+            CONTROLLER_MAP[letter] = serial_to_index[serial]
         else:
-            print(f"⚠️ Controller {letter} (GUID={guid}) not found — using fallback index.")
-            CONTROLLER_MAP[letter] = len(CONTROLLER_MAP) + 1
+            print(f"Warning: Serial {serial} not found. Skipping {letter}.")
 
-    REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
-
-    print("Controller GUID mapping loaded:")
+    REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
+    print("Loaded controller map (letter → joystick index):")
     print(json.dumps(CONTROLLER_MAP, indent=4))
 
 
