@@ -129,7 +129,7 @@ def get_unique_controller_id(js_index):
             if dev_num == js_index:
                 # Extract serial from symlink name
                 serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
-                return f"{name}_break_{serial}"
+                return f"{name}_{serial}"
         except:
             continue
 
