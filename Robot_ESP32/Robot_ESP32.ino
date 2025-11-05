@@ -7,8 +7,9 @@
 #include "driver/ledc.h"
 #include "secrets.h" //Wi-Fi credentials
 #include "accel_handler.h"
+//#include "battery_manager.h"
 
-#define SOFTWARE_VERSION "1.4.0" //latest change: verts can flip at just 90 degrees. Serial Plot is used to monitor accel data
+#define SOFTWARE_VERSION "1.4.1" //latest change: accelerometer data is read more often, and at random variables to avoid being interfered by spinning weapon vibrations
 
 enum RobotType {
   DRUM,
@@ -18,7 +19,7 @@ enum RobotType {
 };
 
 //************************ Fill this section out for each individual robot *******************************
-const unsigned int robot_id = 20;
+const unsigned int robot_id = 33;
 ChipType chip = chip_MPU6050; //standard for first batch of boards
 const bool PLOT_MODE = false; //set to false for normal use, set to true for reading accelerometer data
 //********************************************************************************************************
@@ -27,6 +28,9 @@ unsigned int localPort = 4200 + robot_id;
 bool BIDIRECTIONAL_WEAPON;
 RobotType robotType;
 
+#define VOLTAGE_PIN 0
+
+float voltage = 4.0;
 
 #define SCL 6 
 #define SDA 7 
@@ -70,6 +74,8 @@ int ch1 = CH1_DEFAULT;
 int ch2 = CH2_DEFAULT;
 int ch3; 
 int killswitch = 0; //0 is OFF (as in robots should be off), 1 is LIMITED (drive enabled, weapon disabled), 2 is ARMED (battle mode)
+int invert_for_steer = 0; //0 is off, 1 is on
+bool mix_drive = true;
 
 //bool right_motor_reverse = false;
 //bool left_motor_reverse = true;
@@ -89,6 +95,7 @@ AccelHandler* accelHandler;
 
 void setup(void) {
   Serial.begin(115200);
+  randomSeed(analogRead(A0)); //seed the random number generator with the analog read of noise from pin 0. 
   if(PLOT_MODE)
     Serial.println("X Y Z");
 
@@ -97,7 +104,7 @@ void setup(void) {
     Serial.println(SOFTWARE_VERSION);
   }
 
-  
+  pinMode(VOLTAGE_PIN, INPUT);
 
   switch(robot_id/10){
     case 1: { //drum bot
@@ -118,6 +125,7 @@ void setup(void) {
     default: { //flipper
       BIDIRECTIONAL_WEAPON = false;
       robotType = LIFTER;
+      mix_drive = true;
     }
   }
 
@@ -138,6 +146,8 @@ void setup(void) {
   setup_accelerometer();
 
   xTaskCreate(AccelerometerTask, "AccelMonitor", 4096, NULL, 1, NULL);
+
+  //xTaskCreate(BatteryVoltageTask, "BattVoltMonitor", 4096, NULL, 1, NULL);
 
   connectToWiFi();
 
@@ -263,9 +273,39 @@ void print_accel_values(double x, double y, double z){
   Serial.print(" ");
   Serial.println(z);
 }
+/*
+void BatteryVoltageTask(void *pvParameters){ //task that checks battery level
+  unsigned int sample_size = 10;
+  float readings[sample_size] = {0}; //store last 10 readings
+  int index = 0;
 
-void AccelerometerTask(void *pvParameters) { // task that constantly checks if bot is flipped over
-  float readings[5][3] = {0};  // store last 5 readings (x,y,z)
+  //set initial reading to something in range, so it isn't mostly 0.0s
+  float temp = 4.0;
+  for(int i=0; i<sample_size; i++){ 
+    readings[i] = temp;
+  }
+
+  while (true) {
+    readings[index] = get_voltage_level();
+    index = (index + 1) % sample_size;
+    
+    float sum = 0.0;
+    for(int i=0; i<sample_size; i++){
+      sum += readings[i];
+    }
+
+    float avg = sum / sample_size;
+    voltage = avg;
+    Serial.println(voltage);//temp
+
+    vTaskDelay(50 / portTICK_PERIOD_MS);  // Wait 50ms
+  }
+}
+*/
+
+void AccelerometerTask(void *pvParameters) { // task that constantly checks if bot is flipped over, and battery voltage
+  const unsigned int num_readings = 10;
+  float readings[num_readings][3] = {0};  // store last 10 readings (x,y,z)
   int index = 0;
 
   float x, y, z;
@@ -282,43 +322,59 @@ void AccelerometerTask(void *pvParameters) { // task that constantly checks if b
     readings[index][2] = z;
 
     index++;
-    if (index >= 5) index = 0;  // wrap around
+    if (index >= num_readings) index = 0;  // wrap around
 
     // compute average
     float sum[3] = {0.0, 0.0, 0.0};
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < num_readings; i++) {
       sum[0] += readings[i][0];
       sum[1] += readings[i][1];
       sum[2] += readings[i][2];
     }
 
     float avg[3];
-    avg[0] = sum[0] / 5.0; //x
-    avg[1] = sum[1] / 5.0; //y
-    avg[2] = sum[2] / 5.0; //z
+    avg[0] = sum[0] / (double)(num_readings); //x
+    avg[1] = sum[1] / (double)(num_readings); //y
+    avg[2] = sum[2] / (double)(num_readings); //z
 
     if(PLOT_MODE)
       print_accel_values(avg[0], avg[1], avg[2]);
 
-    if(robotType == VERT){ //flip is calculated based on y and z axis
-      switch(classifyXZ(avg[0], avg[1], avg[2])){ //use y and z
-        case 1: { //right side up
-          if(flipped){
+    if(robotType == VERT || robotType == LIFTER){ //flip is calculated based on y and z axis
+      if(robotType == VERT){
+        switch(classifyXZ(avg[0], avg[1], avg[2])){ //use y and z
+          case 1: { //right side up
+            if(flipped){
+              flipped = false;
+              if(!PLOT_MODE)
+                Serial.println("FLIPPED! Right side up");
+            }
+            break;
+          }
+          case -1: { //upside down
+            if(!flipped){
+              flipped = true;
+              if(!PLOT_MODE)
+                Serial.println("FLIPPED! Upside down");
+            }
+            break;
+          }
+          default: break;
+        }
+      } else { //LIFTER
+        if(flipped){//if bot is currently marked as upside down
+          if(avg[1] > FLIPPED_Z_THRESHOLD){
             flipped = false;
             if(!PLOT_MODE)
               Serial.println("FLIPPED! Right side up");
           }
-          break;
-        }
-        case -1: { //upside down
-          if(!flipped){
+        } else {//if bot is currently marked as right side up
+          if(avg[1] < -FLIPPED_Z_THRESHOLD){
             flipped = true;
             if(!PLOT_MODE)
               Serial.println("FLIPPED! Upside down");
           }
-          break;
         }
-        default: break;
       }
     } else { //flip is calculated based on Z axis alone
       if(flipped){//if bot is currently marked as upside down
@@ -336,7 +392,7 @@ void AccelerometerTask(void *pvParameters) { // task that constantly checks if b
       }
     }
 
-    vTaskDelay(50 / portTICK_PERIOD_MS);  // Wait 50ms
+    vTaskDelay(random(20, 31) / portTICK_PERIOD_MS);  // Wait about 25ms (20 to 30)
   }
 
 }
@@ -386,22 +442,35 @@ void mix_and_write(){
   }
 
  if(flipped){ 
-    forward = -forward;
+    if(invert_for_steer==0){
+      forward = -forward;
+    } else {
+      turn = -turn;
+    }
     if(BIDIRECTIONAL_WEAPON){
         weapon = -weapon;
     }
   }
 
-
-  // Mixed motor signals
-  int left_motor = 1500 + forward + turn;
-  int right_motor = 1500 + forward - turn;
   int weapon_motor;
   if(BIDIRECTIONAL_WEAPON){
     weapon_motor = 1500 + weapon;
   } else {
     weapon_motor = 1000 + weapon;
   }
+
+  int left_motor;
+  int right_motor;
+  if(mix_drive){
+    // Mixed motor signals
+    left_motor = 1500 + forward + turn;
+    right_motor = 1500 + forward - turn;
+    
+  } else { //don't mix
+    left_motor = 1500 + forward;
+    right_motor = 1500 + turn;
+  }
+
 
   // Clamp to PWM range
   left_motor = constrain(left_motor, 1000, 2000);
@@ -426,12 +495,15 @@ void mix_and_write(){
   
 }
 
-void execute_package(int v1, int v2, int v3, int v4){
+void execute_package(int v1, int v2, int v3, int v4, int v5){
+  invert_for_steer = v5;
+  
   if(v4 != 0 && v4 != 2 && v4 != 1){ //make sure valid killswitch signal is received. If not, activate killswitch and disable bot
       ch1 = CH1_DEFAULT;
       ch2 = CH2_DEFAULT;
       ch3 = CH3_DEFAULT;
       killswitch = 0;
+      
       if(!PLOT_MODE){
         Serial.print("INVALID KILLSWITCH SIGNAL RECEIVED! received: ");
         Serial.println(v4);
@@ -495,7 +567,7 @@ void UDP_packet() {
     len = udp.read((uint8_t*)incomingPacket, sizeof(incomingPacket));
   }
 
-  if (len == 8) {
+  if (len == 10) {
     lastPacketReceived = millis();
 
     if (!connected) {
@@ -509,8 +581,9 @@ void UDP_packet() {
     int v2 = values[1];
     int v3 = values[2];
     int v4 = values[3];
+    int v5 = values[4];
 
-    execute_package(v1, v2, v3, v4);
+    execute_package(v1, v2, v3, v4, v5);
     mix_and_write();
 
     bool received = true;
@@ -519,7 +592,7 @@ void UDP_packet() {
     udp.endPacket();
   } else if (connected && millis() - lastPacketReceived >= FAILSAFE_DISCONNECT) {
     connected = false;
-    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0);
+    execute_package(CH1_DEFAULT, CH2_DEFAULT, CH3_DEFAULT, 0, 0);
     mix_and_write();
     if(!PLOT_MODE)
       Serial.println("Connection dropped! Failsafe enabled");
