@@ -228,7 +228,7 @@ class RobotControllerThread(threading.Thread):
 
             #account for "mode" being pressed
             if hat_y != 0:
-                raw_ch2 = hat_y
+                raw_ch2 = hat_y * -1
 
             if(self.inverts[3]): #swap steer and for/back channels
                 ch2 = scale_axis_drive(raw_ch1, self.inverts[0], self.bot_info[0])
