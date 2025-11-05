@@ -50,7 +50,6 @@ CONTROLLER_MAP = {
 
 REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
 
-MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
 DEAD_ZONE = 25
 
