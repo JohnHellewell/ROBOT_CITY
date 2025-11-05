@@ -66,6 +66,7 @@ if platform.system() == "Linux":
     AXIS_Y = 1 #1
     AXIS_LEFT_TRIGGER = 2 #2
     AXIS_RIGHT_TRIGGER = 5 #5
+    
 else:
     AXIS_X = 2
     AXIS_Y = 3
@@ -222,7 +223,12 @@ class RobotControllerThread(threading.Thread):
             raw_ch1 = self.joystick.get_axis(AXIS_X)
             raw_ch2 = self.joystick.get_axis(AXIS_Y)
             raw_ch3 = max(self.joystick.get_axis(AXIS_LEFT_TRIGGER), self.joystick.get_axis(AXIS_RIGHT_TRIGGER) )
+            hat_x, hat_y = self.joystick.get_hat(0)
             #raw_ch4 = self.joystick.get_axis(AXIS_LEFT_TRIGGER)
+
+            #account for "mode" being pressed
+            if hat_y != 0:
+                raw_ch2 = hat_y
 
             if(self.inverts[3]): #swap steer and for/back channels
                 ch2 = scale_axis_drive(raw_ch1, self.inverts[0], self.bot_info[0])
