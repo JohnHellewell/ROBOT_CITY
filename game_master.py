@@ -114,24 +114,18 @@ def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
 
 def list_controllers_by_serial():
-    """Return a list of tuples: (serial_id, js_index, name) for each connected joystick."""
+    """Return (unique_id, js_index, name) for each controller."""
     controllers = []
     js_count = pygame.joystick.get_count()
-    base_path = "/dev/input/by-id/"
-    if not os.path.exists(base_path):
-        raise RuntimeError(f"{base_path} does not exist. Are you on Linux?")
-    
+
     for i in range(js_count):
         js = pygame.joystick.Joystick(i)
         js.init()
         name = js.get_name()
-        serial = None
-        # Try to find matching serial in /dev/input/by-id
-        for entry in os.listdir(base_path):
-            if entry.endswith("-joystick") and name.replace(" ", "") in entry.replace("_", ""):
-                serial = entry.split('_')[-1].replace('-joystick', '')
-                break
-        controllers.append((serial, i, name))
+        # Build a unique ID from device name + instance index
+        unique_id = f"{name.replace(' ', '')}_{i}"
+        controllers.append((unique_id, i, name))
+
     return controllers
 
 def calibrate_controller_order():
