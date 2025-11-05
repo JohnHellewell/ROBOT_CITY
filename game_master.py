@@ -129,12 +129,12 @@ def get_unique_controller_id(js_index):
             if dev_num == js_index:
                 # Extract serial from symlink name
                 serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
-                return f"{name}_{serial}"
+                return f"{name}_break_{serial}"
         except:
             continue
 
     # fallback
-    return f"{name}_break_{js_index}"
+    return f"{name}_{js_index}"
 
 
 def calibrate_controller_order(num_controllers=8):
