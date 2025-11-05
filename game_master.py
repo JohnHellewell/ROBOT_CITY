@@ -134,7 +134,7 @@ def get_unique_controller_id(js_index):
             continue
 
     # fallback
-    return f"{name}_{js_index}"
+    return f"{name}_break_{js_index}"
 
 
 def calibrate_controller_order(num_controllers=8):
