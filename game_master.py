@@ -596,11 +596,12 @@ class ArenaGUI:
     def pair_robot_popup(self, event=None):
         # Gather already connected robots and controllers
         already_connected_bots = [thread.bot_id for thread in pairings.values()]
-        already_connected_controllers = [thread.player_id for thread in pairings.values()]
-        available_controllers = [
-            letter for letter, num in CONTROLLER_MAP.items()
-            if num not in already_connected_controllers
-        ]
+        already_connected_controllers = list(pairings.keys())  # player_id is the letter
+
+        available_controllers = sorted([
+            letter for letter in CONTROLLER_MAP
+            if letter not in already_connected_controllers
+        ])
 
         # Fetch robots from DB
         robots = db_handler.get_robot_list(already_connected=already_connected_bots)
