@@ -146,15 +146,36 @@ def update_runtime_controller_map(json_file=controller_map_json_path):
 
 
 
-def get_unique_controller_id(pygame_index):
+def get_unique_controller_id(player_letter):
     """
-    Returns a unique identifier for the joystick at pygame_index.
+    Return a persistent unique ID for the controller assigned to the given letter (A-H).
+    Uses /dev/input/by-id symlinks on Linux to extract a stable serial.
+    Falls back to name + pygame index if not found.
     """
-    joy = pygame.joystick.Joystick(pygame_index)
-    joy.init()
-    name = joy.get_name()
-    guid = joy.get_guid()  # guaranteed unique per physical device
-    return f"{name}_{guid}"
+    if player_letter not in CONTROLLER_MAP:
+        raise ValueError(f"Controller {player_letter} not in CONTROLLER_MAP")
+
+    js_index = CONTROLLER_MAP[player_letter]
+    js = pygame.joystick.Joystick(js_index)
+    js.init()
+    name = js.get_name()
+
+    # Attempt Linux-specific persistent ID
+    try:
+        by_id_paths = glob.glob("/dev/input/by-id/*-joystick")
+        for path in by_id_paths:
+            real_path = os.path.realpath(path)
+            # Extract the numeric js device, e.g., /dev/input/js0 -> 0
+            dev_num = int(real_path.replace("/dev/input/js", ""))
+            if dev_num == js_index:
+                serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
+                return f"{name}_{serial}"
+    except Exception:
+        pass
+
+    # Fallback: use name + index
+    return f"{name}_{js_index}"
+
 
 
 def calibrate_controller_order(num_controllers=8):
