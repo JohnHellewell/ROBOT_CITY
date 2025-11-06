@@ -38,14 +38,8 @@ def timer_stop_game():
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 sound_effects = SoundEffects()
 
-letters = list(string.ascii_uppercase[:num_controllers])
 CONTROLLER_MAP = {}
-for i in range(min(num_controllers, pygame.joystick.get_count())):
-    js = pygame.joystick.Joystick(i)
-    js.init()
-    name = js.get_name()
-    CONTROLLER_MAP[letters[i]] = f"{name}_{i}"  # simple index-based fallback
-REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
+REVERSE_MAP = {}
 
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
@@ -641,13 +635,14 @@ class ArenaGUI:
 
 
 if __name__ == "__main__":
-    update_runtime_controller_map() #run once on startup
+    
     signal.signal(signal.SIGINT, lambda sig, frame: cleanup_and_exit())
     parser = argparse.ArgumentParser(description="ROBOT CITY Game Manager")
     parser.add_argument("-gui", action="store_true", help="Run in GUI-only mode (no terminal)")
     args = parser.parse_args()
 
     load_controller_map()
+    update_runtime_controller_map() #run once on startup
 
     def launch_terminal_loop():
         try:
