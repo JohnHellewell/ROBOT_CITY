@@ -10,7 +10,6 @@ import platform
 import math
 import string
 import json
-import glob
 from dotenv import load_dotenv
 import os
 import db_handler
@@ -25,6 +24,7 @@ from sound_effects import SoundEffects
 
 pygame.init()
 pygame.joystick.init()
+
 
 controller_map_json_path = "controller_map.json"
 
@@ -49,7 +49,7 @@ CONTROLLER_MAP = {
     "H": 8,
 }
 
-REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
+REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
 
 MAX_PLAYERS = 4
 SEND_INTERVAL = 0.01  # seconds
@@ -114,53 +114,47 @@ def check_dead_zone(a, b):
 def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
 
-def update_controller_map_from_json(json_file="controller_map.json"):
+def update_runtime_controller_map(json_file=controller_map_json_path):
     """
-    Reads the JSON file mapping letters -> UIDs,
-    then updates CONTROLLER_MAP to map letters -> current pygame index.
+    Updates CONTROLLER_MAP to map letters → pygame indices using UIDs from JSON.
     """
-    import json
     global CONTROLLER_MAP
     CONTROLLER_MAP = {}
-
+    
     try:
         with open(json_file, "r") as f:
             letter_to_uid = json.load(f)
     except FileNotFoundError:
-        print(f"No controller map JSON found at {json_file}.")
+        print(f"No controller map JSON found at {json_file}. Using empty map.")
         return
 
-    # Go through each pygame joystick and get its UID
     for i in range(pygame.joystick.get_count()):
-        uid = get_unique_controller_id(i)  # Your existing function
+        uid = get_unique_controller_id(i)
         for letter, mapped_uid in letter_to_uid.items():
-            if mapped_uid == uid:
+            if uid == mapped_uid:
                 CONTROLLER_MAP[letter] = i
-                print(f"Controller {letter} mapped to pygame index {i} (UID={uid})")
+                break
+
+    print("Runtime CONTROLLER_MAP updated:", CONTROLLER_MAP)
 
 
 
-def get_unique_controller_id(js_index):
-    """Return a persistent unique ID for the controller at pygame index js_index."""
-    js = pygame.joystick.Joystick(js_index)
-    js.init()
-    name = js.get_name()
 
-    # Look for symlinks in /dev/input/by-id/
-    by_id_paths = glob.glob("/dev/input/by-id/*-joystick")
-    for path in by_id_paths:
-        try:
-            real_path = os.path.realpath(path)
-            dev_num = int(real_path.replace("/dev/input/js", ""))
-            if dev_num == js_index:
-                # Extract serial from symlink name
-                serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
-                return f"{name}_{serial}"
-        except:
-            continue
+update_runtime_controller_map() #run once on startup
 
-    # fallback
-    return f"{name}_{js_index}"
+
+
+
+
+def get_unique_controller_id(pygame_index):
+    """
+    Returns a unique identifier for the joystick at pygame_index.
+    """
+    joy = pygame.joystick.Joystick(pygame_index)
+    joy.init()
+    name = joy.get_name()
+    guid = joy.get_guid()  # guaranteed unique per physical device
+    return f"{name}_{guid}"
 
 
 def calibrate_controller_order(num_controllers=8):
@@ -201,6 +195,7 @@ def calibrate_controller_order(num_controllers=8):
 
     save_controller_map(new_order)
     load_controller_map()
+    update_runtime_controller_map()
 
 
 def save_controller_map(order, filename=controller_map_json_path):
@@ -314,7 +309,7 @@ def pair(player_letter, robot_id):
         print(f"Controller {player_letter} is not connected!")
         return
 
-    joystick_index = CONTROLLER_MAP[player_letter]
+    joystick_index = CONTROLLER_MAP[player_letter]  # runtime index
 
     # Prevent duplicate robot pairing
     for thread in pairings.values():
@@ -334,6 +329,7 @@ def pair(player_letter, robot_id):
     pairings[player_letter] = thread
     thread.start()
     print(f"Paired controller {player_letter} to robot {robot_id} ({ip}:{port})")
+
 
 
 
@@ -643,14 +639,14 @@ if __name__ == "__main__":
                     parts = cmd.split()
                     if len(parts) == 3:
                         _, player_id, robot_id = parts
-                        pair(int(player_id), robot_id)
+                        pair(player_id, robot_id)
                     else:
                         print("Usage: pair playerX robot_id")
                 elif cmd.startswith("break"):
                     parts = cmd.split()
                     if len(parts) == 2:
                         _, player_id = parts
-                        break_pair(int(player_id))
+                        break_pair(player_id)
                     else:
                         print("Usage: break playerX")
                 elif cmd == "start":
