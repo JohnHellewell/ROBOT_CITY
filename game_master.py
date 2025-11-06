@@ -107,12 +107,11 @@ def get_robot_info(robot_id):
 
 def update_runtime_controller_map(json_file=controller_map_json_path):
     """
-    Update CONTROLLER_MAP to map letters -> joystick indices
-    using UIDs from JSON file at runtime.
+    Updates CONTROLLER_MAP to map letters → pygame indices using UIDs from JSON.
     """
     global CONTROLLER_MAP
     CONTROLLER_MAP = {}
-
+    
     try:
         with open(json_file, "r") as f:
             letter_to_uid = json.load(f)
@@ -121,86 +120,98 @@ def update_runtime_controller_map(json_file=controller_map_json_path):
         return
 
     for i in range(pygame.joystick.get_count()):
-        uid = get_unique_controller_id_from_index(i)
+        uid = get_unique_controller_id(i)
         for letter, mapped_uid in letter_to_uid.items():
             if uid == mapped_uid:
-                CONTROLLER_MAP[letter] = i
+                CONTROLLER_MAP[letter] = i  # runtime index
                 break
 
     print("Runtime CONTROLLER_MAP updated:", CONTROLLER_MAP)
 
 
-def get_unique_controller_id_from_index(js_index):
-    """Return a persistent unique ID for a joystick index (safe on startup)."""
+
+
+
+def get_unique_controller_id(js_index):
+    """Return a persistent unique ID for the controller at pygame index js_index."""
     js = pygame.joystick.Joystick(js_index)
     js.init()
     name = js.get_name()
 
-    try:
-        by_id_paths = glob.glob("/dev/input/by-id/*-joystick")
-        for path in by_id_paths:
+    # Look for symlinks in /dev/input/by-id/
+    by_id_paths = glob.glob("/dev/input/by-id/*-joystick")
+    for path in by_id_paths:
+        try:
             real_path = os.path.realpath(path)
             dev_num = int(real_path.replace("/dev/input/js", ""))
             if dev_num == js_index:
+                # Extract serial from symlink name
                 serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
                 return f"{name}_{serial}"
-    except Exception:
-        pass
+        except:
+            continue
 
+    # fallback
     return f"{name}_{js_index}"
-
-
-def get_unique_controller_id(player_letter):
-    """
-    Return UID for a controller letter.
-    Requires CONTROLLER_MAP already exists.
-    """
-    if player_letter not in CONTROLLER_MAP:
-        raise ValueError(f"Controller {player_letter} not in CONTROLLER_MAP")
-    js_index = CONTROLLER_MAP[player_letter]
-    return get_unique_controller_id_from_index(js_index)
 
 
 
 def calibrate_controller_order(num_controllers=8):
-    reset()  # break all pairings first
+    """
+    Calibrate the order of controllers.
+    Prompts the user to press a button on each controller to assign letters A-H.
+    Stores letters → UID in JSON and updates runtime map.
+    """
+    reset()  # Clear all pairings first
 
-    if pygame.joystick.get_count() < num_controllers:
-        print(f"{num_controllers} controllers expected, only {pygame.joystick.get_count()} found. Operation cancelled")
+    connected_count = pygame.joystick.get_count()
+    if connected_count < num_controllers:
+        print(f"{num_controllers} controllers expected, only {connected_count} found. Operation cancelled.")
         return
-    elif pygame.joystick.get_count() > num_controllers:
-        print(f"{num_controllers} controllers expected, {pygame.joystick.get_count()} found. Only the first {num_controllers} will be counted")
+    elif connected_count > num_controllers:
+        print(f"{num_controllers} controllers expected, {connected_count} found. Only the first {num_controllers} will be counted.")
 
+    # Build list of connected joysticks and their UIDs
     joysticks = []
     unique_ids = []
-    for i in range(min(num_controllers, pygame.joystick.get_count())):
+    for i in range(min(num_controllers, connected_count)):
         js = pygame.joystick.Joystick(i)
         js.init()
         joysticks.append(js)
         uid = get_unique_controller_id(i)
         unique_ids.append(uid)
-        print(f"[{i}] {js.get_name()} | Serial={uid.split('_')[-1]}")  # show short serial
+        print(f"[{i}] {js.get_name()} | UID={uid.split('_')[-1]}")  # short serial
 
-    print("\nPress A, B, X, or Y on each controller to assign A-H order...\n")
-
-    new_order = []
+    print("\nPress A, B, X, or Y on each controller in order to assign letters A-H...\n")
     valid_buttons = {0, 1, 2, 3}  # A B X Y
-    while len(new_order) < len(joysticks):
+    assigned = []
+
+    while len(assigned) < len(joysticks):
         for event in pygame.event.get():
             if event.type == pygame.JOYBUTTONDOWN:
                 js_index = event.joy
                 btn = event.button
                 uid = unique_ids[js_index]
 
-                if uid not in new_order and btn in valid_buttons:
-                    new_order.append(uid)
-                    print(f"Controller {js_index + 1} set as {string.ascii_uppercase[len(new_order)-1]} ({uid})")
+                if uid not in assigned and btn in valid_buttons:
+                    assigned.append(uid)
+                    letter = string.ascii_uppercase[len(assigned) - 1]
+                    print(f"Controller {js_index + 1} set as {letter} ({uid.split('_')[-1]})")
 
         pygame.time.wait(10)
 
-    save_controller_map(new_order)
-    load_controller_map()
+    # Save mapping letters → UID
+    letters = list(string.ascii_uppercase[:len(assigned)])
+    controller_map = {letters[i]: assigned[i] for i in range(len(assigned))}
+    with open(controller_map_json_path, "w") as f:
+        json.dump(controller_map, f, indent=4)
+
+    print("\nController map saved to controller_map.json:")
+    print(json.dumps(controller_map, indent=4))
+
+    # Update runtime CONTROLLER_MAP (letters → joystick index)
     update_runtime_controller_map()
+
 
 
 def save_controller_map(order, filename=controller_map_json_path):
@@ -217,43 +228,42 @@ def save_controller_map(order, filename=controller_map_json_path):
 
 def load_controller_map(filename=controller_map_json_path, num_controllers=8):
     """
-    Load controller map from JSON or fallback to default first-N controllers.
-    CONTROLLER_MAP: letter -> UID
-    REVERSE_MAP: UID -> letter
+    Load controller map from JSON file or map defaults.
+    Stores letters → UID in JSON; at runtime we use letters → index.
     """
     global CONTROLLER_MAP, REVERSE_MAP
 
-    letters = list(string.ascii_uppercase[:num_controllers])
+    CONTROLLER_MAP = {}
+    REVERSE_MAP = {}
 
-    try:
-        if os.path.exists(filename):
+    if os.path.exists(filename):
+        try:
             with open(filename, "r") as f:
                 data = json.load(f)
-
-            # Check that JSON contains letter -> UID mapping
-            if isinstance(data, dict) and all(k in letters for k in data.keys()):
-                CONTROLLER_MAP = data
+            # Ensure keys are letters
+            if isinstance(data, dict) and all(k in string.ascii_uppercase for k in data.keys()):
+                # For each connected joystick, find which letter it maps to
+                for i in range(pygame.joystick.get_count()):
+                    uid = get_unique_controller_id(i)
+                    for letter, stored_uid in data.items():
+                        if uid == stored_uid:
+                            CONTROLLER_MAP[letter] = i
                 REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
                 print(f"Loaded controller map from {filename}:")
-                print(json.dumps(CONTROLLER_MAP, indent=4))
+                print(json.dumps(data, indent=4))
                 return
             else:
                 print(f"Invalid format in {filename}, using default map.")
-        else:
-            print(f"No existing {filename}, using default map.")
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+            print("Using default map.")
 
-    except Exception as e:
-        print(f"Error loading {filename}: {e}")
-        print("Using default map.")
-
-    # fallback: map letters to first N joystick UIDs
-    CONTROLLER_MAP = {
-        letters[i]: get_unique_controller_id_from_index(i)
-        for i in range(min(num_controllers, pygame.joystick.get_count()))
-    }
+    # fallback: assign first N joysticks
+    letters = list(string.ascii_uppercase[:num_controllers])
+    for i in range(min(num_controllers, pygame.joystick.get_count())):
+        CONTROLLER_MAP[letters[i]] = i
     REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
-    print("Fallback controller map loaded:")
-    print(json.dumps(CONTROLLER_MAP, indent=4))
+    print("Using default runtime map:", CONTROLLER_MAP)
 
 
     
@@ -631,7 +641,7 @@ class ArenaGUI:
                     messagebox.showerror("Error", "That robot is already paired!")
                     return
 
-            pair(CONTROLLER_MAP[controller], selected_robot_id)
+            pair(controller, selected_robot_id)
             popup.destroy()
 
         tk.Button(popup, text="Pair", command=on_pair,
