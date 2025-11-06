@@ -1,5 +1,5 @@
 #example desktop shortcut
-#Exec=env GTK_IM_MODULE=xim XDG_SESSION_TYPE=x11 XMODIFIERS= /usr/bin/python3 /home/john/ROBOT_CITY/game_master.py -gui
+#Exec=env DISPLAY=:0 GTK_IM_MODULE=xim XDG_SESSION_TYPE=x11 XMODIFIERS= /usr/bin/python3 /home/john/ROBOT_CITY/game_master.py -gui
 
 import pygame
 import socket
