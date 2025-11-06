@@ -38,17 +38,13 @@ def timer_stop_game():
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 sound_effects = SoundEffects()
 
-CONTROLLER_MAP = {
-    "A": 1,
-    "B": 2,
-    "C": 3,
-    "D": 4,
-    "E": 5,
-    "F": 6,
-    "G": 7,
-    "H": 8,
-}
-
+letters = list(string.ascii_uppercase[:num_controllers])
+CONTROLLER_MAP = {}
+for i in range(min(num_controllers, pygame.joystick.get_count())):
+    js = pygame.joystick.Joystick(i)
+    js.init()
+    name = js.get_name()
+    CONTROLLER_MAP[letters[i]] = f"{name}_{i}"  # simple index-based fallback
 REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
 
 MAX_PLAYERS = 4
