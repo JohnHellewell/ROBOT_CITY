@@ -114,6 +114,32 @@ def check_dead_zone(a, b):
 def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
 
+def update_controller_map_from_json(json_file="controller_map.json"):
+    """
+    Reads the JSON file mapping letters -> UIDs,
+    then updates CONTROLLER_MAP to map letters -> current pygame index.
+    """
+    import json
+    global CONTROLLER_MAP
+    CONTROLLER_MAP = {}
+
+    try:
+        with open(json_file, "r") as f:
+            letter_to_uid = json.load(f)
+    except FileNotFoundError:
+        print(f"No controller map JSON found at {json_file}.")
+        return
+
+    # Go through each pygame joystick and get its UID
+    for i in range(pygame.joystick.get_count()):
+        uid = get_unique_controller_id(i)  # Your existing function
+        for letter, mapped_uid in letter_to_uid.items():
+            if mapped_uid == uid:
+                CONTROLLER_MAP[letter] = i
+                print(f"Controller {letter} mapped to pygame index {i} (UID={uid})")
+
+
+
 def get_unique_controller_id(js_index):
     """Return a persistent unique ID for the controller at pygame index js_index."""
     js = pygame.joystick.Joystick(js_index)
@@ -283,14 +309,16 @@ class RobotControllerThread(threading.Thread):
         self.running = False
         self.sock.close()
 
-def pair(player_id, robot_id):
-    if player_id in pairings:
-        print(f"Player {player_id} is already paired. Break first.")
+def pair(player_letter, robot_id):
+    if player_letter not in CONTROLLER_MAP:
+        print(f"Controller {player_letter} is not connected!")
         return
-    
-    # Check if robot is already paired
+
+    joystick_index = CONTROLLER_MAP[player_letter]
+
+    # Prevent duplicate robot pairing
     for thread in pairings.values():
-        if thread.bot_id == robot_id:  
+        if thread.bot_id == robot_id:
             print(f"Robot {robot_id} is already paired to another controller.")
             return
 
@@ -299,19 +327,14 @@ def pair(player_id, robot_id):
         print(f"Robot ID '{robot_id}' not found in database.")
         return
 
-    # player_id is already an integer 1-8
-    index = player_id - 1
-    if index >= pygame.joystick.get_count():
-        print(f"No controller found for player {player_id}.")
-        return
-
-    joystick = pygame.joystick.Joystick(index)
+    joystick = pygame.joystick.Joystick(joystick_index)
     joystick.init()
     ip, port, inverts, bot_info = robot_info
-    thread = RobotControllerThread(player_id, joystick, ip, port, inverts, bot_info, robot_id)
-    pairings[player_id] = thread
+    thread = RobotControllerThread(player_letter, joystick, ip, port, inverts, bot_info, robot_id)
+    pairings[player_letter] = thread
     thread.start()
-    print(f"Paired player {player_id} to robot {robot_id} ({ip}:{port})")
+    print(f"Paired controller {player_letter} to robot {robot_id} ({ip}:{port})")
+
 
 
 def break_pair(player_id):
