@@ -10,6 +10,7 @@ import platform
 import math
 import string
 import json
+import glob
 from dotenv import load_dotenv
 import os
 import db_handler
@@ -106,11 +107,12 @@ def get_robot_info(robot_id):
 
 def update_runtime_controller_map(json_file=controller_map_json_path):
     """
-    Updates CONTROLLER_MAP to map letters → pygame indices using UIDs from JSON.
+    Update CONTROLLER_MAP to map letters -> joystick indices
+    using UIDs from JSON file at runtime.
     """
     global CONTROLLER_MAP
     CONTROLLER_MAP = {}
-    
+
     try:
         with open(json_file, "r") as f:
             letter_to_uid = json.load(f)
@@ -119,7 +121,7 @@ def update_runtime_controller_map(json_file=controller_map_json_path):
         return
 
     for i in range(pygame.joystick.get_count()):
-        uid = get_unique_controller_id(i)
+        uid = get_unique_controller_id_from_index(i)
         for letter, mapped_uid in letter_to_uid.items():
             if uid == mapped_uid:
                 CONTROLLER_MAP[letter] = i
@@ -128,34 +130,16 @@ def update_runtime_controller_map(json_file=controller_map_json_path):
     print("Runtime CONTROLLER_MAP updated:", CONTROLLER_MAP)
 
 
-
-
-
-
-
-
-
-
-def get_unique_controller_id(player_letter):
-    """
-    Return a persistent unique ID for the controller assigned to the given letter (A-H).
-    Uses /dev/input/by-id symlinks on Linux to extract a stable serial.
-    Falls back to name + pygame index if not found.
-    """
-    if player_letter not in CONTROLLER_MAP:
-        raise ValueError(f"Controller {player_letter} not in CONTROLLER_MAP")
-
-    js_index = CONTROLLER_MAP[player_letter]
+def get_unique_controller_id_from_index(js_index):
+    """Return a persistent unique ID for a joystick index (safe on startup)."""
     js = pygame.joystick.Joystick(js_index)
     js.init()
     name = js.get_name()
 
-    # Attempt Linux-specific persistent ID
     try:
         by_id_paths = glob.glob("/dev/input/by-id/*-joystick")
         for path in by_id_paths:
             real_path = os.path.realpath(path)
-            # Extract the numeric js device, e.g., /dev/input/js0 -> 0
             dev_num = int(real_path.replace("/dev/input/js", ""))
             if dev_num == js_index:
                 serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
@@ -163,8 +147,18 @@ def get_unique_controller_id(player_letter):
     except Exception:
         pass
 
-    # Fallback: use name + index
     return f"{name}_{js_index}"
+
+
+def get_unique_controller_id(player_letter):
+    """
+    Return UID for a controller letter.
+    Requires CONTROLLER_MAP already exists.
+    """
+    if player_letter not in CONTROLLER_MAP:
+        raise ValueError(f"Controller {player_letter} not in CONTROLLER_MAP")
+    js_index = CONTROLLER_MAP[player_letter]
+    return get_unique_controller_id_from_index(js_index)
 
 
 
@@ -222,15 +216,22 @@ def save_controller_map(order, filename=controller_map_json_path):
 
 
 def load_controller_map(filename=controller_map_json_path, num_controllers=8):
-    """Load controller map from JSON file or set CONTROLLER_MAP to defaults using unique IDs."""
+    """
+    Load controller map from JSON or fallback to default first-N controllers.
+    CONTROLLER_MAP: letter -> UID
+    REVERSE_MAP: UID -> letter
+    """
     global CONTROLLER_MAP, REVERSE_MAP
+
+    letters = list(string.ascii_uppercase[:num_controllers])
 
     try:
         if os.path.exists(filename):
             with open(filename, "r") as f:
                 data = json.load(f)
 
-            if isinstance(data, dict) and all(k in string.ascii_uppercase for k in data.keys()):
+            # Check that JSON contains letter -> UID mapping
+            if isinstance(data, dict) and all(k in letters for k in data.keys()):
                 CONTROLLER_MAP = data
                 REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
                 print(f"Loaded controller map from {filename}:")
@@ -245,10 +246,14 @@ def load_controller_map(filename=controller_map_json_path, num_controllers=8):
         print(f"Error loading {filename}: {e}")
         print("Using default map.")
 
-    # fallback: map letters to first N controllers by index
-    letters = list(string.ascii_uppercase[:num_controllers])
-    CONTROLLER_MAP = {letters[i]: get_unique_controller_id(i) for i in range(min(num_controllers, pygame.joystick.get_count()))}
+    # fallback: map letters to first N joystick UIDs
+    CONTROLLER_MAP = {
+        letters[i]: get_unique_controller_id_from_index(i)
+        for i in range(min(num_controllers, pygame.joystick.get_count()))
+    }
     REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
+    print("Fallback controller map loaded:")
+    print(json.dumps(CONTROLLER_MAP, indent=4))
 
 
     
