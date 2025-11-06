@@ -140,7 +140,7 @@ def update_runtime_controller_map(json_file=controller_map_json_path):
 
 
 
-update_runtime_controller_map() #run once on startup
+
 
 
 
@@ -624,6 +624,7 @@ class ArenaGUI:
 
 
 if __name__ == "__main__":
+    update_runtime_controller_map() #run once on startup
     signal.signal(signal.SIGINT, lambda sig, frame: cleanup_and_exit())
     parser = argparse.ArgumentParser(description="ROBOT CITY Game Manager")
     parser.add_argument("-gui", action="store_true", help="Run in GUI-only mode (no terminal)")
