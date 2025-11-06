@@ -527,7 +527,7 @@ class ArenaGUI:
     
     def break_pair_popup(self, event=None):
         if not pairings:
-            messagebox.showinfo("No Active Connections", "There are no active connections to break.")
+            messagebox.showinfo("No Active Pairings", "No active pairings!")
             return
 
         popup = tk.Toplevel()
@@ -538,27 +538,19 @@ class ArenaGUI:
         pairing_display = []
         controllers = []
 
-        # ✅ get full robot list ONCE (same info used in pair_robot_popup)
+        # Fetch robots from DB once
         robots = db_handler.get_robot_list()
+        robot_lookup = {r['robot_id']: f"{r['robot_type']} - {r['color']}" for r in robots}
 
-        # ✅ build a dictionary: robot_id → "Type - Color"
-        robot_lookup = {}
-        for r in robots:
-            # r is likely a dict with 'robot_id', 'robot_type', 'color'
-            robot_lookup[r['robot_id']] = f"{r['robot_type']} - {r['color']}"
-
-        # ✅ build the dropdown entries
-        for thread in pairings.values():
-            player_id = thread.player_id
-            bot_id = thread.bot_id
-
-            controller_label = REVERSE_MAP[player_id]   # e.g. A, B, C...
-            robot_label = robot_lookup.get(bot_id, f"Robot {bot_id}")  # fallback just in case
-
+        # Build dropdown entries sorted alphabetically by controller letter
+        sorted_pairings = sorted(pairings.items(), key=lambda x: x[0])  # sort by letter
+        for player_letter, thread in sorted_pairings:
+            controller_label = player_letter
+            robot_label = robot_lookup.get(thread.bot_id, f"Robot {thread.bot_id}")
             pairing_display.append(f"Controller {controller_label} → {robot_label}")
-            controllers.append(player_id)
+            controllers.append(player_letter)
 
-       
+        # Default selection
         pair_var = tk.StringVar(popup)
         pair_var.set(pairing_display[0])
         pair_menu = tk.OptionMenu(popup, pair_var, *pairing_display)
@@ -566,13 +558,15 @@ class ArenaGUI:
 
         def on_break():
             idx = pairing_display.index(pair_var.get())
-            controller_num = controllers[idx]
-            self.break_fn(controller_num)
+            controller_letter = controllers[idx]
+            self.break_fn(controller_letter)
             popup.destroy()
 
-        tk.Button(popup, text="Break", command=on_break,
-                bg="red", fg="white").grid(row=1, column=0, columnspan=2, pady=15)
+        tk.Button(popup, text="Break", command=on_break, bg="red", fg="white") \
+            .grid(row=1, column=0, columnspan=2, pady=15)
+
         popup.grab_set()
+
 
 
 
