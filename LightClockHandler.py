@@ -76,7 +76,7 @@ class LightClockHandler:
     # Match controls
     # --------------------------
     # start_match() modification
-    def start_match(self):
+    def start_match(self, callback):
         if self.current_state != "waiting":
             print("Match already started or in progress.")
             return
@@ -93,6 +93,7 @@ class LightClockHandler:
 
         # schedule internal match timer start after animation
         threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
+        callback(2) #set robots to on
         print(f"Start requested — lights animation running for {self.ANIMATION_BUFFER_MS} ms.")
 
 

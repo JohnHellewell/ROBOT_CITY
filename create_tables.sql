@@ -32,4 +32,14 @@ CREATE TABLE robot (
     FOREIGN KEY (robot_type) REFERENCES robot_type(bot_type)
 );
 
+CREATE TABLE soccer_robot (
+    robot_id int PRIMARY KEY,
+    local_ip VARCHAR(13) NOT NULL,
+    network_port SMALLINT NOT NULL,
+    color ENUM('BLUE', 'GREEN') NOT NULL,
+    CH1_INVERT BOOLEAN DEFAULT 0,
+    CH2_INVERT BOOLEAN DEFAULT 0,
+    CH3_INVERT BOOLEAN DEFAULT 0,
+    CH4_INVERT BOOLEAN DEFAULT 0
+);
 

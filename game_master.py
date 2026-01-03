@@ -1,5 +1,5 @@
 #example desktop shortcut
-#Exec=env GTK_IM_MODULE=xim XDG_SESSION_TYPE=x11 XMODIFIERS= /usr/bin/python3 /home/john/ROBOT_CITY/game_master.py -gui
+#Exec=env DISPLAY=:0 GTK_IM_MODULE=xim XDG_SESSION_TYPE=x11 XMODIFIERS= /usr/bin/python3 /home/john/ROBOT_CITY/game_master.py -gui
 
 import pygame
 import socket
@@ -10,6 +10,7 @@ import platform
 import math
 import string
 import json
+import glob
 from dotenv import load_dotenv
 import os
 import db_handler
@@ -25,6 +26,7 @@ from sound_effects import SoundEffects
 pygame.init()
 pygame.joystick.init()
 
+
 controller_map_json_path = "controller_map.json"
 
 def timer_stop_game():
@@ -37,18 +39,8 @@ def timer_stop_game():
 light_clock_handler = LightClockHandler(on_match_end=timer_stop_game)
 sound_effects = SoundEffects()
 
-CONTROLLER_MAP = {
-    "A": 1,
-    "B": 2,
-    "C": 3,
-    "D": 4,
-    "E": 5,
-    "F": 6,
-    "G": 7,
-    "H": 8,
-}
-
-REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
+CONTROLLER_MAP = {}
+REVERSE_MAP = {}
 
 SEND_INTERVAL = 0.01  # seconds
 DEAD_ZONE = 25
@@ -112,47 +104,118 @@ def check_dead_zone(a, b):
 def get_robot_info(robot_id):
     return db_handler.get_robot_info(robot_id)
 
-def calibrate_controller_order(num_controllers = 8):
-    reset() #break all pairings first
-
-    if pygame.joystick.get_count() < num_controllers:
-        print(f"{num_controllers} controllers expected, only {pygame.joystick.get_count()} found. Operation cancelled")
+def update_runtime_controller_map(json_file=controller_map_json_path):
+    """
+    Updates CONTROLLER_MAP to map letters → pygame indices using UIDs from JSON.
+    """
+    global CONTROLLER_MAP
+    CONTROLLER_MAP = {}
+    
+    try:
+        with open(json_file, "r") as f:
+            letter_to_uid = json.load(f)
+    except FileNotFoundError:
+        print(f"No controller map JSON found at {json_file}. Using empty map.")
         return
-    elif pygame.joystick.get_count() > num_controllers:
-        print(f"{num_controllers} controllers expected, {pygame.joystick.get_count()} found. Only the first {num_controllers} will be counted")
 
+    for i in range(pygame.joystick.get_count()):
+        uid = get_unique_controller_id(i)
+        for letter, mapped_uid in letter_to_uid.items():
+            if uid == mapped_uid:
+                CONTROLLER_MAP[letter] = i  # runtime index
+                break
+
+    print("Runtime CONTROLLER_MAP updated:", CONTROLLER_MAP)
+
+
+
+
+
+def get_unique_controller_id(js_index):
+    """Return a persistent unique ID for the controller at pygame index js_index."""
+    js = pygame.joystick.Joystick(js_index)
+    js.init()
+    name = js.get_name()
+
+    # Look for symlinks in /dev/input/by-id/
+    by_id_paths = glob.glob("/dev/input/by-id/*-joystick")
+    for path in by_id_paths:
+        try:
+            real_path = os.path.realpath(path)
+            dev_num = int(real_path.replace("/dev/input/js", ""))
+            if dev_num == js_index:
+                # Extract serial from symlink name
+                serial = os.path.basename(path).replace("usb-", "").replace("-joystick", "")
+                return f"{name}_{serial}"
+        except:
+            continue
+
+    # fallback
+    return f"{name}_{js_index}"
+
+
+
+def calibrate_controller_order(num_controllers=8):
+    """
+    Calibrate the order of controllers.
+    Prompts the user to press a button on each controller to assign letters A-H.
+    Stores letters → UID in JSON and updates runtime map.
+    """
+    reset()  # Clear all pairings first
+
+    connected_count = pygame.joystick.get_count()
+    if connected_count < num_controllers:
+        print(f"{num_controllers} controllers expected, only {connected_count} found. Operation cancelled.")
+        return
+    elif connected_count > num_controllers:
+        print(f"{num_controllers} controllers expected, {connected_count} found. Only the first {num_controllers} will be counted.")
+
+    # Build list of connected joysticks and their UIDs
     joysticks = []
-    for i in range(min(num_controllers, pygame.joystick.get_count())):
+    unique_ids = []
+    for i in range(min(num_controllers, connected_count)):
         js = pygame.joystick.Joystick(i)
         js.init()
         joysticks.append(js)
-    
-    print("\nPress A, B, X, or Y on each controller to set order...\n")
+        uid = get_unique_controller_id(i)
+        unique_ids.append(uid)
+        print(f"[{i}] {js.get_name()} | UID={uid.split('_')[-1]}")  # short serial
 
-    new_order = []
-    valid_buttons = {0, 1, 2, 3} # A B X Y
-    while len(new_order) < len(joysticks):
+    print("\nPress A, B, X, or Y on each controller in order to assign letters A-H...\n")
+    valid_buttons = {0, 1, 2, 3}  # A B X Y
+    assigned = []
+
+    while len(assigned) < len(joysticks):
         for event in pygame.event.get():
             if event.type == pygame.JOYBUTTONDOWN:
                 js_index = event.joy
                 btn = event.button
+                uid = unique_ids[js_index]
 
-                if js_index not in new_order and btn in valid_buttons:
-                    new_order.append(js_index)
-                    print(f"Controller {js_index + 1} set as position {len(new_order)}")
-        
-        pygame.time.wait(10) # small delay
-    
-    for i in range(len(new_order)):
-        new_order[i] += 1
-    
-    print("\nFinal order:", new_order)
-    save_controller_map(new_order)
-    load_controller_map()
+                if uid not in assigned and btn in valid_buttons:
+                    assigned.append(uid)
+                    letter = string.ascii_uppercase[len(assigned) - 1]
+                    print(f"Controller {js_index + 1} set as {letter} ({uid.split('_')[-1]})")
+
+        pygame.time.wait(10)
+
+    # Save mapping letters → UID
+    letters = list(string.ascii_uppercase[:len(assigned)])
+    controller_map = {letters[i]: assigned[i] for i in range(len(assigned))}
+    with open(controller_map_json_path, "w") as f:
+        json.dump(controller_map, f, indent=4)
+
+    print("\nController map saved to controller_map.json:")
+    print(json.dumps(controller_map, indent=4))
+
+    # Update runtime CONTROLLER_MAP (letters → joystick index)
+    update_runtime_controller_map()
+
+
 
 def save_controller_map(order, filename=controller_map_json_path):
-    """Convert controller order to labeled map (A-H) and save as JSON."""
-    letters = list(string.ascii_uppercase[:len(order)])  # ['A', 'B', 'C', ...]
+    """Save the controller map as letters → unique IDs."""
+    letters = list(string.ascii_uppercase[:len(order)])
     controller_map = {letters[i]: order[i] for i in range(len(order))}
 
     with open(filename, "w") as f:
@@ -160,41 +223,46 @@ def save_controller_map(order, filename=controller_map_json_path):
 
     print(f"\nController map saved to {filename}:")
     print(json.dumps(controller_map, indent=4))
-    
+
 
 def load_controller_map(filename=controller_map_json_path, num_controllers=8):
-    """Load controller map from JSON file or set CONTROLLER_MAP to default."""
+    """
+    Load controller map from JSON file or map defaults.
+    Stores letters → UID in JSON; at runtime we use letters → index.
+    """
     global CONTROLLER_MAP, REVERSE_MAP
 
-    try:
-        if os.path.exists(filename):
+    CONTROLLER_MAP = {}
+    REVERSE_MAP = {}
+
+    if os.path.exists(filename):
+        try:
             with open(filename, "r") as f:
                 data = json.load(f)
-
-            # Validate the loaded data
-            if isinstance(data, dict) and all(
-                k in string.ascii_uppercase for k in data.keys()
-            ):
-                CONTROLLER_MAP = data
+            # Ensure keys are letters
+            if isinstance(data, dict) and all(k in string.ascii_uppercase for k in data.keys()):
+                # For each connected joystick, find which letter it maps to
+                for i in range(pygame.joystick.get_count()):
+                    uid = get_unique_controller_id(i)
+                    for letter, stored_uid in data.items():
+                        if uid == stored_uid:
+                            CONTROLLER_MAP[letter] = i
                 REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
                 print(f"Loaded controller map from {filename}:")
-                print(json.dumps(CONTROLLER_MAP, indent=4))
+                print(json.dumps(data, indent=4))
                 return
             else:
                 print(f"Invalid format in {filename}, using default map.")
-        else:
-            print(f"No existing {filename}, using default map.")
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+            print("Using default map.")
 
-    except Exception as e:
-        print(f"Error loading {filename}: {e}")
-        print("Using default map.")
-
-    # Default fallback map (A:0, B:1, ...)
+    # fallback: assign first N joysticks
     letters = list(string.ascii_uppercase[:num_controllers])
-    CONTROLLER_MAP = {letters[i]: i for i in range(len(letters))}
-    REVERSE_MAP = {v:k for k,v in CONTROLLER_MAP.items()}
-
-
+    for i in range(min(num_controllers, pygame.joystick.get_count())):
+        CONTROLLER_MAP[letters[i]] = i
+    REVERSE_MAP = {v: k for k, v in CONTROLLER_MAP.items()}
+    print("Using default runtime map:", CONTROLLER_MAP)
 
 
     
@@ -261,14 +329,16 @@ class RobotControllerThread(threading.Thread):
         self.running = False
         self.sock.close()
 
-def pair(player_id, robot_id):
-    if player_id in pairings:
-        print(f"Player {player_id} is already paired. Break first.")
+def pair(player_letter, robot_id):
+    if player_letter not in CONTROLLER_MAP:
+        print(f"Controller {player_letter} is not connected!")
         return
-    
-    # Check if robot is already paired
+
+    joystick_index = CONTROLLER_MAP[player_letter]  # runtime index
+
+    # Prevent duplicate robot pairing
     for thread in pairings.values():
-        if thread.bot_id == robot_id:  
+        if thread.bot_id == robot_id:
             print(f"Robot {robot_id} is already paired to another controller.")
             return
 
@@ -277,19 +347,19 @@ def pair(player_id, robot_id):
         print(f"Robot ID '{robot_id}' not found in database.")
         return
 
-    # player_id is already an integer 1-8
-    index = player_id - 1
-    if index >= pygame.joystick.get_count():
-        print(f"No controller found for player {player_id}.")
-        return
-
-    joystick = pygame.joystick.Joystick(index)
+    joystick = pygame.joystick.Joystick(joystick_index)
     joystick.init()
     ip, port, inverts, bot_info = robot_info
-    thread = RobotControllerThread(player_id, joystick, ip, port, inverts, bot_info, robot_id)
-    pairings[player_id] = thread
+    thread = RobotControllerThread(player_letter, joystick, ip, port, inverts, bot_info, robot_id)
+    pairings[player_letter] = thread
     thread.start()
-    print(f"Paired player {player_id} to robot {robot_id} ({ip}:{port})")
+    print(f"Paired controller {player_letter} to robot {robot_id} ({ip}:{port})")
+
+def killswitch(ks_value):
+    global killswitch_value
+    with lock:
+        killswitch_value = 2
+    print("Game started (killswitch=2)")
 
 
 def break_pair(player_id):
@@ -302,13 +372,10 @@ def break_pair(player_id):
 
 def start_game():
     #sound_effects.chase_seq()
-    light_clock_handler.start_match()
+    light_clock_handler.start_match(killswitch)
     #sound_effects.countdown_3sec()
     #time.sleep(3)
-    global killswitch_value
-    with lock:
-        killswitch_value = 2
-    print("Game started (killswitch=2)")
+    
 
 def stop_game():
     light_clock_handler.ko_match()
@@ -460,7 +527,7 @@ class ArenaGUI:
     
     def break_pair_popup(self, event=None):
         if not pairings:
-            messagebox.showinfo("No Active Connections", "There are no active connections to break.")
+            messagebox.showinfo("No Active Pairings", "No active pairings!")
             return
 
         popup = tk.Toplevel()
@@ -471,27 +538,19 @@ class ArenaGUI:
         pairing_display = []
         controllers = []
 
-        # ✅ get full robot list ONCE (same info used in pair_robot_popup)
+        # Fetch robots from DB once
         robots = db_handler.get_robot_list()
+        robot_lookup = {r['robot_id']: f"{r['robot_type']} - {r['color']}" for r in robots}
 
-        # ✅ build a dictionary: robot_id → "Type - Color"
-        robot_lookup = {}
-        for r in robots:
-            # r is likely a dict with 'robot_id', 'robot_type', 'color'
-            robot_lookup[r['robot_id']] = f"{r['robot_type']} - {r['color']}"
-
-        # ✅ build the dropdown entries
-        for thread in pairings.values():
-            player_id = thread.player_id
-            bot_id = thread.bot_id
-
-            controller_label = REVERSE_MAP[player_id]   # e.g. A, B, C...
-            robot_label = robot_lookup.get(bot_id, f"Robot {bot_id}")  # fallback just in case
-
+        # Build dropdown entries sorted alphabetically by controller letter
+        sorted_pairings = sorted(pairings.items(), key=lambda x: x[0])  # sort by letter
+        for player_letter, thread in sorted_pairings:
+            controller_label = player_letter
+            robot_label = robot_lookup.get(thread.bot_id, f"Robot {thread.bot_id}")
             pairing_display.append(f"Controller {controller_label} → {robot_label}")
-            controllers.append(player_id)
+            controllers.append(player_letter)
 
-       
+        # Default selection
         pair_var = tk.StringVar(popup)
         pair_var.set(pairing_display[0])
         pair_menu = tk.OptionMenu(popup, pair_var, *pairing_display)
@@ -499,13 +558,15 @@ class ArenaGUI:
 
         def on_break():
             idx = pairing_display.index(pair_var.get())
-            controller_num = controllers[idx]
-            self.break_fn(controller_num)
+            controller_letter = controllers[idx]
+            self.break_fn(controller_letter)
             popup.destroy()
 
-        tk.Button(popup, text="Break", command=on_break,
-                bg="red", fg="white").grid(row=1, column=0, columnspan=2, pady=15)
+        tk.Button(popup, text="Break", command=on_break, bg="red", fg="white") \
+            .grid(row=1, column=0, columnspan=2, pady=15)
+
         popup.grab_set()
+
 
 
 
@@ -529,11 +590,12 @@ class ArenaGUI:
     def pair_robot_popup(self, event=None):
         # Gather already connected robots and controllers
         already_connected_bots = [thread.bot_id for thread in pairings.values()]
-        already_connected_controllers = [thread.player_id for thread in pairings.values()]
-        available_controllers = [
-            letter for letter, num in CONTROLLER_MAP.items()
-            if num not in already_connected_controllers
-        ]
+        already_connected_controllers = list(pairings.keys())  # player_id is the letter
+
+        available_controllers = sorted([
+            letter for letter in CONTROLLER_MAP
+            if letter not in already_connected_controllers
+        ])
 
         # Fetch robots from DB
         robots = db_handler.get_robot_list(already_connected=already_connected_bots)
@@ -574,7 +636,7 @@ class ArenaGUI:
                     messagebox.showerror("Error", "That robot is already paired!")
                     return
 
-            pair(CONTROLLER_MAP[controller], selected_robot_id)
+            pair(controller, selected_robot_id)
             popup.destroy()
 
         tk.Button(popup, text="Pair", command=on_pair,
@@ -583,12 +645,14 @@ class ArenaGUI:
 
 
 if __name__ == "__main__":
+    
     signal.signal(signal.SIGINT, lambda sig, frame: cleanup_and_exit())
     parser = argparse.ArgumentParser(description="ROBOT CITY Game Manager")
     parser.add_argument("-gui", action="store_true", help="Run in GUI-only mode (no terminal)")
     args = parser.parse_args()
 
     load_controller_map()
+    update_runtime_controller_map() #run once on startup
 
     def launch_terminal_loop():
         try:
@@ -598,14 +662,14 @@ if __name__ == "__main__":
                     parts = cmd.split()
                     if len(parts) == 3:
                         _, player_id, robot_id = parts
-                        pair(int(player_id), robot_id)
+                        pair(player_id, robot_id)
                     else:
                         print("Usage: pair playerX robot_id")
                 elif cmd.startswith("break"):
                     parts = cmd.split()
                     if len(parts) == 2:
                         _, player_id = parts
-                        break_pair(int(player_id))
+                        break_pair(player_id)
                     else:
                         print("Usage: break playerX")
                 elif cmd == "start":
