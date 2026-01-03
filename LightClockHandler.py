@@ -91,10 +91,18 @@ class LightClockHandler:
         # tell the clock to start in 3 sec (animation buffer)
         self._send_command(1, self.remaining_ms)
 
-        # schedule internal match timer start after animation
-        threading.Timer(self.ANIMATION_BUFFER_MS / 1000.0, self._begin_counting).start()
-        callback(2) #set robots to on
+        def after_animation():
+            self._begin_counting()
+            callback(2)  # set robots to on
+
+        # schedule after animation buffer
+        threading.Timer(
+            self.ANIMATION_BUFFER_MS / 1000.0,
+            after_animation
+        ).start()
+
         print(f"Start requested — lights animation running for {self.ANIMATION_BUFFER_MS} ms.")
+
 
 
 
