@@ -508,17 +508,19 @@ class ArenaGUI:
         self.start_fn()
     
     def calibrate_controllers(self, event=None):
-        messagebox.showinfo(
-            "Controller Calibration",
-            "Press any [A B X Y] button on each controller from A to H. This will set the order.\n\n"
-            "Make sure all controllers are plugged in before continuing."
-        )
+        #messagebox.showinfo(
+        #    "Controller Calibration",
+        #    "Press any [A B X Y] button on each controller from A to H. This will set the order.\n\n"
+        #    "Make sure all controllers are plugged in before continuing."
+        #)
 
-        try:
-            self.controller_cal_fn()
-            messagebox.showinfo("Calibration Complete", "Controllers calibrated successfully.")
-        except Exception as e:
-            messagebox.showerror("Calibration Failed", f"An error occurred:\n{e}")
+        return 0
+
+        #try:
+        #    self.controller_cal_fn()
+        #    messagebox.showinfo("Calibration Complete", "Controllers calibrated successfully.")
+        #except Exception as e:
+        #    messagebox.showerror("Calibration Failed", f"An error occurred:\n{e}")
     
     def reset_all_popup(self, event=None):
         """Popup confirmation when reset is triggered."""
