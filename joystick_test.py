@@ -8,8 +8,10 @@ import time
 import platform
 
 # UDP Setup 
-ESP32_IP = "192.168.8.10"
-PORT = 4210
+BODY_IP = "192.168.1.100"
+BODY_PORT = 4400
+HEAD_IP = "192.168.1.8"
+HEAD_PORT = 50001
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
 
@@ -20,7 +22,7 @@ dead_zone = 30
 ks = 0
 
 # weapon scaling
-weapon_scale = 0.4 #must be between 0.0 and 1.0
+weapon_scale = 1 #must be between 0.0 and 1.0
 
 #joystick setup**********
 
@@ -34,13 +36,16 @@ else:
     # Assume Windows (or fallback)
     AXIS_RIGHT_X = 2 #correct
     AXIS_RIGHT_Y = 3 
+    AXIS_LEFT_X = 0
+    AXIS_LEFT_Y = 1
     AXIS_LEFT_TRIGGER = 4
     AXIS_RIGHT_TRIGGER = 5
 
 
+
 def send_only(values):
     packet = struct.pack('HHHH', *values)
-    sock.sendto(packet, (ESP32_IP, PORT))
+    sock.sendto(packet, (BODY_IP, BODY_PORT))
 
 #def send_and_receive(values):
 #    assert len(values) == 4
@@ -104,16 +109,21 @@ try:
         pygame.event.pump()
 
         # Read axis 4 and 5 (right stick typically)
-        raw_ch1 = joystick.get_axis(AXIS_RIGHT_X)  # Right stick horizontal
-        raw_ch2 = joystick.get_axis(AXIS_RIGHT_Y)  # Right stick vertical
-        raw_ch3 = joystick.get_axis(AXIS_RIGHT_TRIGGER) #Right Trigger: Weapon
+        #raw_ch1 = joystick.get_axis(AXIS_RIGHT_X)  # Right stick horizontal
+        #raw_ch2 = joystick.get_axis(AXIS_RIGHT_Y)  # Right stick vertical
+        #raw_ch3 = joystick.get_axis(AXIS_RIGHT_TRIGGER) #Right Trigger: Weapon
+        #raw_ch4 = joystick.get_axis(AXIS_LEFT_TRIGGER)  # Left trigger: killswitch
+
+        raw_ch1 = joystick.get_axis(AXIS_LEFT_X)  # Right stick horizontal
+        raw_ch2 = joystick.get_axis(AXIS_LEFT_Y)  # Right stick vertical
+        raw_ch3 = joystick.get_axis(AXIS_RIGHT_X) #Right Trigger: Weapon
         raw_ch4 = joystick.get_axis(AXIS_LEFT_TRIGGER)  # Left trigger: killswitch
 
 
 
         ch1 = scale_axis(raw_ch1, False) 
         ch2 = scale_axis(raw_ch2, True) 
-        ch3 = scale_axis_spinner(raw_ch3, True)
+        ch3 = scale_axis(raw_ch3, False)
         ch1, ch2 = check_dead_zone(ch1, ch2)
 
 
@@ -127,7 +137,7 @@ try:
             pressed = False
         
         
-        print(f"ch1: {ch1}, ch2: {ch2}, ch3: {ch3},ks: {ks}, left trig: {raw_ch4}")
+        print(f"ch1: {ch1}, ch2: {ch2}, ch3: {ch3},ks: {ks}")
 
             
         # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
