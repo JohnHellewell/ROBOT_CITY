@@ -1,152 +1,138 @@
 import pygame
 import sys
 import math
-import pygame
 import socket
 import struct
 import time
 import platform
 
-# UDP Setup 
-BODY_IP = "192.168.1.100"
-BODY_PORT = 4400
-HEAD_IP = "192.168.1.8"
+# --- UDP Setup ---
+BODY_IP = "192.168.1.80"
+BODY_PORT = 4280
+HEAD_IP = "192.168.1.90"
 HEAD_PORT = 50001
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.01)
 
-# Stick Drift Correction
+# --- Stick Drift Correction ---
 dead_zone = 30
 
-# killswitch
+# --- killswitch ---
 ks = 0
 
-# weapon scaling
-weapon_scale = 1 #must be between 0.0 and 1.0
+# --- weapon scaling ---
+weapon_scale = 1.0  # must be between 0.0 and 1.0
 
-#joystick setup**********
-
-# Detect OS
+# --- Joystick axis mapping ---
 if platform.system() == "Linux":
     AXIS_RIGHT_X = 3
     AXIS_RIGHT_Y = 4
     AXIS_LEFT_TRIGGER = 2
     AXIS_RIGHT_TRIGGER = 5
 else:
-    # Assume Windows (or fallback)
-    AXIS_RIGHT_X = 2 #correct
-    AXIS_RIGHT_Y = 3 
+    # Assume Windows fallback
+    AXIS_RIGHT_X = 2
+    AXIS_RIGHT_Y = 3
     AXIS_LEFT_X = 0
     AXIS_LEFT_Y = 1
     AXIS_LEFT_TRIGGER = 4
     AXIS_RIGHT_TRIGGER = 5
 
+# --- XYAB button indices (verify with your controller) ---
+BUTTON_X = 2
+BUTTON_Y = 3
+BUTTON_A = 0
+BUTTON_B = 1
 
+prev_button_state = [False] * 4  # track previous XYAB states
 
+# --- Helper functions ---
 def send_only(values):
+    """Send 4-channel packet to the body."""
     packet = struct.pack('HHHH', *values)
     sock.sendto(packet, (BODY_IP, BODY_PORT))
+    # Print for debugging
+    #print(f"Body packet sent -> CH1: {values[0]}, CH2: {values[1]}, CH3: {values[2]}, KS: {values[3]}")
 
-#def send_and_receive(values):
-#    assert len(values) == 4
-#    packet = struct.pack('HHHH', *values)
-#    sock.sendto(packet, (ESP32_IP, PORT))
-#    try:
-#        data, _ = sock.recvfrom(1024)
-#        result = struct.unpack('?', data[:1])[0]
-#       #print("Received bool:", result)
-#        return result
-#    except socket.timeout:
-#        print("No response (timeout)")
+def send_head(button_id):
+    """Send a single integer to the head board (edge-triggered)."""
+    if button_id == 2:
+        button_id = 1
+    elif button_id == 1:
+        button_id = 2
+    packet = struct.pack('!I', button_id)  # network byte order
+    sock.sendto(packet, (HEAD_IP, HEAD_PORT))
+    print(f"Head packet sent -> Button ID: {button_id}")
 
-# --- Gamepad Setup ---
+def scale_axis(value, flip=False):
+    """Scale joystick axis (-1..1) to 1000-2000 PWM values."""
+    if flip:
+        return 2000 - int((value + 1) * 500)
+    else:
+        return int((value + 1) * 500 + 1000)
+
+def check_dead_zone(a, b):
+    """Apply circular dead zone to two axes."""
+    a1 = abs(1500 - a)
+    b1 = abs(1500 - b)
+    if math.sqrt(a1 * a1 + b1 * b1) <= dead_zone:
+        return 1500, 1500
+    else:
+        return a, b
+
+# --- Initialize joystick ---
 pygame.init()
 pygame.joystick.init()
 
 if pygame.joystick.get_count() == 0:
     print("No joystick connected.")
-    exit()
+    sys.exit()
 
 joystick = pygame.joystick.Joystick(0)
 joystick.init()
 print(f"Using joystick: {joystick.get_name()}")
 
-# --- Axis to RC Conversion ---
-def scale_axis(value, flip):
-    temp = 1500
-    if flip:
-        temp = 2000-int((value + 1) * 500)
-    else:
-        temp = int((value + 1) * 500 + 1000)
-
-    return temp
-
-def scale_axis_spinner(value, flip):
-    if value < -1.0 or value > 1.0:
-        print('CH3 OUT OF BOUNDS!')
-        return 1500
-    value = (value+1)/2
-    
-    if flip:
-        return 1500-int(value * 500 * weapon_scale)
-    else:
-        return 1500+int(value * 500 * weapon_scale)
-
-
-def check_dead_zone(a, b):
-    a1 = abs(1500-a)
-    b1 = abs(1500-b)
-
-    if (math.sqrt(a1*a1 + b1*b1)<=dead_zone):
-        return (1500, 1500)
-    else:
-        return (a, b)
-
-# --- Main Loop ---
+# --- Main loop ---
 try:
-    pressed = True
+    pressed = False  # tracks killswitch trigger state
+
     while True:
         pygame.event.pump()
 
-        # Read axis 4 and 5 (right stick typically)
-        #raw_ch1 = joystick.get_axis(AXIS_RIGHT_X)  # Right stick horizontal
-        #raw_ch2 = joystick.get_axis(AXIS_RIGHT_Y)  # Right stick vertical
-        #raw_ch3 = joystick.get_axis(AXIS_RIGHT_TRIGGER) #Right Trigger: Weapon
-        #raw_ch4 = joystick.get_axis(AXIS_LEFT_TRIGGER)  # Left trigger: killswitch
+        # --- Read axes ---
+        raw_ch1 = joystick.get_axis(AXIS_LEFT_X)
+        raw_ch2 = joystick.get_axis(AXIS_LEFT_Y)
+        raw_ch3 = joystick.get_axis(AXIS_RIGHT_X)
+        raw_ch4 = joystick.get_axis(AXIS_LEFT_TRIGGER)
 
-        raw_ch1 = joystick.get_axis(AXIS_LEFT_X)  # Right stick horizontal
-        raw_ch2 = joystick.get_axis(AXIS_LEFT_Y)  # Right stick vertical
-        raw_ch3 = joystick.get_axis(AXIS_RIGHT_X) #Right Trigger: Weapon
-        raw_ch4 = joystick.get_axis(AXIS_LEFT_TRIGGER)  # Left trigger: killswitch
-
-
-
-        ch1 = scale_axis(raw_ch1, False) 
-        ch2 = scale_axis(raw_ch2, True) 
+        ch1 = scale_axis(raw_ch1, False)
+        ch2 = scale_axis(raw_ch2, True)
         ch3 = scale_axis(raw_ch3, False)
         ch1, ch2 = check_dead_zone(ch1, ch2)
 
-
+        # --- Handle killswitch toggle ---
         if not pressed and raw_ch4 > 0:
             pressed = True
-            if ks == 0:
-                ks = 2
-            else:
-                ks = 0
+            ks = 2 if ks == 0 else 0
         elif pressed and raw_ch4 == -1.0:
             pressed = False
-        
-        
-        print(f"ch1: {ch1}, ch2: {ch2}, ch3: {ch3},ks: {ks}")
 
-            
-        # Send ch1 and ch2, set ch3 = 1500, ch4 = 0
-        #send_and_receive([ch1, ch2, 1500, ks])
+        # --- Handle XYAB button presses (edge detection) ---
+        for idx, button in enumerate([BUTTON_A, BUTTON_B, BUTTON_X, BUTTON_Y]):
+            is_pressed = joystick.get_button(button)
+            if is_pressed and not prev_button_state[idx]:
+                send_head(idx)  # send packet once per press
+            prev_button_state[idx] = is_pressed
+
+        # --- Send body control packet ---
         send_only([ch1, ch2, ch3, ks])
 
-        time.sleep(0.010)  
+        # --- Small delay ---
+        time.sleep(0.01)
 
 except KeyboardInterrupt:
     print("\nExiting...")
+
 finally:
     pygame.quit()

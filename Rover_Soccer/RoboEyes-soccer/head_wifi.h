@@ -27,6 +27,8 @@ static void wifiTask(void* parameter) {
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
+  WiFi.setTxPower(WIFI_POWER_11dBm);
+
   bool ledState = false;
 
   while (WiFi.status() != WL_CONNECTED) {

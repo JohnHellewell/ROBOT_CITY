@@ -9,8 +9,8 @@
 
 // Pins
 #define CH1_PIN 4
-#define CH2_PIN 2//2
-#define CH3_PIN 1//1
+#define CH2_PIN 2
+#define CH3_PIN 1
 #define CH4_PIN 3
 
 // Channels
@@ -91,11 +91,15 @@ void apply_motor_values(int values[]){
     }
 }
 
-void mix_mecanum(int forward, int strafe, int rotate, int out[4])
+void mix_mecanum(int strafe, int forward, int rotate, int out[4])
 {
   int f = forward - 1500;
   int s = strafe  - 1500;
   int r = rotate  - 1500;
+
+  f = constrain(f, 1000, 2000);
+  s = constrain(s, 1000, 2000);
+  r = constrain(r, 1000, 2000);
 
   out[0] = 1500 - (f + s + r);
   out[1] = 1500 + (f - s - r);
@@ -103,8 +107,7 @@ void mix_mecanum(int forward, int strafe, int rotate, int out[4])
   out[3] = 1500 + (f + s - r);
 
   for (int i = 0; i < 4; i++) {
-    if (out[i] > 2000) out[i] = 2000;
-    if (out[i] < 1000) out[i] = 1000;
+    out[i] = constrain(out[i], 1000, 2000);
   }
 }
 
@@ -118,28 +121,28 @@ void loop() {
     apply_motor_values(stopped);
     delay(10000); //10s
 
-    mix_mecanum(1800,1500,1500, motor_vals); //forward
+    mix_mecanum(1500,1800,1500, motor_vals); //forward
     apply_motor_values(motor_vals);
     delay(500); //500ms
 
     apply_motor_values(stopped);
     delay(1000); //1s
 
-    mix_mecanum(1200,1500,1500, motor_vals); //backward
+    mix_mecanum(1500,1200,1500, motor_vals); //backward
     apply_motor_values(motor_vals);
     delay(500); //500ms
 
     apply_motor_values(stopped);
     delay(1000); //1s
 
-    mix_mecanum(1500,1800,1500, motor_vals); //strafe right
+    mix_mecanum(1800,1500,1500, motor_vals); //strafe right
     apply_motor_values(motor_vals);
     delay(750); //500ms
 
     apply_motor_values(stopped);
     delay(1000); //1s
 
-    mix_mecanum(1500,1200,1500, motor_vals); //strafe left
+    mix_mecanum(1200,1500,1500, motor_vals); //strafe left
     apply_motor_values(motor_vals);
     delay(750); //500ms
 
